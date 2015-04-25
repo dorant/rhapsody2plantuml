@@ -969,8 +969,8 @@ def print_sequencediagrams(xmlnode):
 if __name__ == "__main__":
     parser = ArgumentParser(formatter_class = ArgumentDefaultsHelpFormatter)
     parser.add_argument("file", help="XML file to parse")
-    parser.add_argument("-v", help="Enable verbose log", dest="verbose", action="store_true")
-    parser.add_argument("--list", help="List extractable charts", action="store_true")
+    parser.add_argument("-v", dest="verbose", help="Enable verbose log", action="store_true")
+    parser.add_argument("-l", "--list", dest="list", help="List extractable charts", action="store_true")
     parser.add_argument("-s", dest="sequence", help="Name of sequence diagram to generate to PlantUML")
     parser.add_argument("-u", dest="usecases", help="Name of usecases diagram to generate to PlantUML")
     options = parser.parse_args()
