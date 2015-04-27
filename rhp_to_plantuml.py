@@ -250,7 +250,7 @@ def parse_classes(xml_node):
             id = iclass.xpath("_id/text()")[0]
 
             global_participants[id] = Participant(PartType.CLASS, name)
-            logging.debug("Added:" + global_participants[id])
+            logging.debug("Added: %s", global_participants[id])
             
 # Global level
 def parse_actors(xml_node):
@@ -273,7 +273,7 @@ def parse_actors(xml_node):
                     actor.associations.append(assoc_node.xpath("_otherClass/IClassifierHandle/_id/text()")[0])
 
             global_participants[id] = actor
-            logging.debug("Added:" + global_participants[id])
+            logging.debug("Added: %s", global_participants[id])
 
 # Parse a opt-box in a statechart
 def parse_conditions(node, events_result):
@@ -295,18 +295,18 @@ def parse_conditions(node, events_result):
                 msg.cond = cond
                 msg.text = operand.xpath("_interactionConstraint/text()")[0]
                 msg.id = id
-                logging.debug("Added start:" + msg)
-                logging.debug("         id:" + id)
-                logging.debug("       type:" + cond)
+                logging.debug("Added start: %s", msg)
+                logging.debug("         id: %s", id)
+                logging.debug("       type: %s", cond)
 
 
             else:
                 msg = ConditionElse()
                 msg.text = operand.xpath("_interactionConstraint/text()")[0]
                 msg.id = id
-                logging.debug("Added  else:" + msg)
-                logging.debug("         id:" + id)
-                logging.debug("       type:" + "else")
+                logging.debug("Added  else: %s", msg)
+                logging.debug("         id: %s", id)
+                logging.debug("       type: %s", "else")
 
             last_id = id
             events_result.append(msg)
@@ -318,12 +318,12 @@ def parse_conditions(node, events_result):
         msg.id = last_id
         events_result.append(msg)
 
-        logging.debug("Added   end:" + msg)
-        logging.debug("         id:" + last_id)
-        logging.debug("       type:" + cond)
+        logging.debug("Added   end: %s", msg)
+        logging.debug("         id: %s", last_id)
+        logging.debug("       type: %s", cond)
 
 
-def parse_usecases(xml_node):
+def parse_usecases(xml_node, find_name):
 
     data_usecases = {}
     for usecase in xml_node.findall(".//ISubsystem/UseCases/IRPYRawContainer/value/IUseCase"):
@@ -354,7 +354,7 @@ def parse_usecases(xml_node):
         
 
     data_diagrams = {}
-    for diagram in root.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram"):
+    for diagram in root.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram[_name='" + find_name + "']"):
         name = diagram.xpath("_name/text()")[0]
 
         # Parse boxes in diagram
@@ -465,21 +465,21 @@ def get_merged_position(cgi_node, guid):
     assert len(polygon_node) == 1
     position = Position()
     position.parsePolygon(polygon_node[0])
-    logging.debug("Merge:" + position)
+    logging.debug("Merge: %s", position)
 
     transform = Transform()
     transform_node = cgi_items[0].xpath("m_transform/text()")
     if len(transform_node) > 0:
         assert len(transform_node) == 1
         transform = Transform(transform_node[0])
-        logging.debug("Merge:" + transform)
+        logging.debug("Merge: %s", transform)
 
     root_guid = cgi_node.xpath("m_pRoot/text()")[0]
     parent_node = cgi_items[0].xpath("m_pParent/text()")
     assert len(parent_node) == 1
 
     if parent_node[0] != root_guid:
-        logging.debug("Merge: Base is non-root:" + parent_node[0])
+        logging.debug("Merge: Base is non-root: %s", parent_node[0])
     else:
         logging.debug("Merge: Base is root")
 
@@ -570,7 +570,7 @@ def parse_sequencediagram(xml_node, find_name):
                 msg.type = MessageType.REPLY
 
             chartdata["events"].append(msg)
-            logging.debug("Added:" + msg)
+            logging.debug("Added: %s", msg)
 
 
         # Conditions (loop, opt..) (CombinedFragments)
@@ -595,8 +595,8 @@ def parse_sequencediagram(xml_node, find_name):
                 transform = Transform(transform_node[0])
 #TODO: remove transform
                 data_lifelines[id].position.transform(transform)
-                logging.debug("Transform" + transform)
-                logging.debug("Updated" + data_lifelines[id])
+                logging.debug("Transform %s", transform)
+                logging.debug("Updated %s", data_lifelines[id])
 
                 if not msg_port_factor:
                     msg_port_factor = transform.scale_height
@@ -621,7 +621,7 @@ def parse_sequencediagram(xml_node, find_name):
                     msg.position.transform(transform)
                     
                     chartdata["events"].append(msg)
-                    logging.debug("Added:" + msg)
+                    logging.debug("Added: %s", msg)
 
         # CGI: Messages - add extra info 
         for message in cgi.xpath("CGIMscMessage"):
@@ -646,7 +646,7 @@ def parse_sequencediagram(xml_node, find_name):
                         event.position.top_right_y = y_value
                         event.position.bottom_right_y = y_value
 
-                        logging.debug("Updated:" + event + "Port:" + port)
+                        logging.debug("Updated: %s Port: %s", event, port)
 
         # CGI: References
         for operand in cgi.xpath("CGIMscInteractionOccurrence"):
@@ -668,7 +668,7 @@ def parse_sequencediagram(xml_node, find_name):
                     # Get position
                     event.position = get_merged_position(cgi, id)
 
-                    logging.debug("Updated:" + event)
+                    logging.debug("Updated: %s", event)
 
 
         # CGI: Operand (loop, opt..)
@@ -689,7 +689,7 @@ def parse_sequencediagram(xml_node, find_name):
                     if event.type == EventType.COND_START or event.type == EventType.COND_ELSE:
                         event.position = position
 
-                        logging.debug("Operator-Updated:" + event)
+                        logging.debug("Operator-Updated: %s", event)
 
                     elif event.type == EventType.COND_END:
                         new_pos = Position()
@@ -702,7 +702,7 @@ def parse_sequencediagram(xml_node, find_name):
                         new_pos.bottom_right_x = position.bottom_right_x
                         new_pos.bottom_right_y = position.bottom_right_y
                         event.position = new_pos
-                        logging.debug("Operator-Updated:" + event)
+                        logging.debug("Operator-Updated: %s", event)
 
         for operand in cgi.xpath("CGIMscInteractionOperand"):
             id_node = operand.xpath("_id/text()")
@@ -720,10 +720,10 @@ def parse_sequencediagram(xml_node, find_name):
 
                     if event.type == EventType.COND_START:
                         event.position = position
-                        logging.debug("Updated:" + event)
+                        logging.debug("Updated: %s", event)
                     elif event.type == EventType.COND_ELSE:
                         event.position = position
-                        logging.debug("Updated:" + event)
+                        logging.debug("Updated: %s", event)
                     elif event.type == EventType.COND_END:
                         new_pos = Position()
                         new_pos.top_left_x = position.bottom_left_x
@@ -735,7 +735,7 @@ def parse_sequencediagram(xml_node, find_name):
                         new_pos.bottom_right_x = position.bottom_right_x
                         new_pos.bottom_right_y = position.bottom_right_y
                         event.position = new_pos
-                        logging.debug("Updated:" + event)
+                        logging.debug("Updated: %s", event)
 
 
         # Notes
@@ -754,7 +754,7 @@ def parse_sequencediagram(xml_node, find_name):
             msg.position = get_merged_position(cgi, id)
 
             chartdata["events"].append(msg)
-            logging.debug("Added:" + msg)
+            logging.debug("Added: %s", msg)
 
 
         # Anchor
@@ -782,7 +782,7 @@ def find_nearest_lifeline(position):
             smallest_part = part
 
         dist = abs(part.position.get_center_x() - position.get_center_x())
-        logging.debug("Nearest lifeline: Check:" + dist + " against" + smallest_dist)
+        logging.debug("Nearest lifeline: Check: %s against %s", dist, smallest_dist)
 
         if smallest_dist < dist:
             return smallest_part
@@ -814,7 +814,7 @@ def generate_plantuml(chartdata):
         else:
             print 'participant %s %s' % (quote_if_space(part.name), color)
 
-        logging.debug("Position:" + part.position)
+        logging.debug("Position: %s", part.position)
 
     # Print all events(messages/conditions and more)
     for event in sorted(chartdata["events"], key=lambda x: x.position.top_left_y):
@@ -866,7 +866,7 @@ def generate_plantuml(chartdata):
         elif event.type == EventType.DIVIDER:
             print "==", event.text, "=="
 
-        logging.debug("Position:" + event.position)
+        logging.debug("Position: %s", event.position)
 
     print "@enduml"
 
@@ -952,14 +952,14 @@ def generate_plantuml_usecase(ucdata, diagram):
         print ""
 
 
-def print_usecases(xmlnode):
+def print_usecase_list(xmlnode):
     print "Usecase diagrams:" 
-    for usecase in xmlnode.findall(".//ISubsystem/UseCases/IRPYRawContainer/value/IUseCase"):
+    for usecase in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram"):
         name = usecase.xpath("_name/text()")[0]
         print "  ", name
 
 
-def print_sequencediagrams(xmlnode):
+def print_sequencediagrams_list(xmlnode):
     print "Sequence diagrams:" 
     for diagram in xmlnode.findall(".//IMSC"):
         name = diagram.xpath("_name/text()")[0]
@@ -972,7 +972,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", dest="verbose", help="Enable verbose log", action="store_true")
     parser.add_argument("-l", "--list", dest="list", help="List extractable charts", action="store_true")
     parser.add_argument("-s", dest="sequence", help="Name of sequence diagram to generate to PlantUML")
-    parser.add_argument("-u", dest="usecases", help="Name of usecases diagram to generate to PlantUML")
+    parser.add_argument("-u", dest="usecase", help="Name of usecase diagram to generate to PlantUML")
     options = parser.parse_args()
 
     if options.verbose:
@@ -982,8 +982,8 @@ if __name__ == "__main__":
     root = tree.getroot()
 
     if options.list:
-        print_usecases(root)
-        print_sequencediagrams(root)
+        print_usecase_list(root)
+        print_sequencediagrams_list(root)
         sys.exit()
 
     # Parse global info
@@ -996,8 +996,8 @@ if __name__ == "__main__":
         generate_plantuml(seqdata)
 
     # Parse usecase
-    elif options.usecases:
-        ucdata, diagram = parse_usecases(root)
+    elif options.usecase:
+        ucdata, diagram = parse_usecases(root, options.usecase)
         generate_plantuml_usecase(ucdata, diagram)
 
     else:
