@@ -354,7 +354,7 @@ def parse_usecases(xml_node, find_name):
         
 
     data_diagrams = {}
-    for diagram in root.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram[_name='" + find_name + "']"):
+    for diagram in xml_node.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram[_name='" + find_name + "']"):
         name = diagram.xpath("_name/text()")[0]
 
         # Parse boxes in diagram
@@ -509,11 +509,8 @@ def parse_sequencediagram(xml_node, find_name):
     global data_lifelines
     chartdata = {}
 
-    # Parse all
-    #    for chart in root.findall(".//IMSC"):
-
     # Parse a diagram (can exist in a IUseCase as well...
-    for chart in root.xpath(".//IMSC[_name='" + find_name + "']"):
+    for chart in xml_node.xpath(".//IMSC[_name='" + find_name + "']"):
 
 
         # Chartname
@@ -770,6 +767,145 @@ def parse_sequencediagram(xml_node, find_name):
     return chartdata
 
 
+def parse_classdiagram(xml_node, find_name):
+    """ Parse a specific class diagram from an xml-node/root 
+    """
+    global global_participants
+    diagramdata = {}
+
+    # Parse a diagram (can exist in a IUseCase as well...
+    for diagram in xml_node.findall(".//ISubsystem/Declaratives/IRPYRawContainer/value/IDiagram[_name='" + find_name + "']"):
+        name = diagram.xpath("_name/text()")[0]
+        print "  ", name
+
+        # Chartname
+        diagramdata["name"] = diagram.xpath("_name/text()")[0]
+
+        root = diagram.xpath("_graphicChart/CGIClassChart/m_pRoot/text()")[0]
+
+        # Class
+        classes = {}
+        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIClass"):
+            id_node = cgi.xpath("_id/text()")
+            assert len(id_node) == 1
+            id = id_node[0]
+
+            if id != root:
+                cgiclass = {}
+                # Get name
+                model_node = cgi.xpath("m_pModelObject/IHandle/_name/text()")
+                if len(model_node) == 1:
+                    name = model_node[0]
+                else:
+                    model_node = cgi.xpath("m_pModelObject/IHandle/_id/text()")
+                    assert len(model_node) == 1
+                    model_id = model_node[0]
+                    name = global_participants[model_id].name
+
+                cgiclass["name"] = name
+
+                # Get stereotype
+                stereotype_node = cgi.xpath("_properties/IPropertyContainer/Subjects/IRPYRawContainer/value/IPropertySubject[_Name='ObjectModelGe']/Metaclasses/IRPYRawContainer/value/IPropertyMetaclass/_Name/text()")
+                if len(stereotype_node) > 0:
+                    cgiclass["stereotype"] = stereotype_node[0]
+
+                # Get parent
+                parent_node = cgi.xpath("m_pParent/text()")
+                assert len(parent_node) == 1
+                cgiclass["parent"] = parent_node[0]
+
+
+                classes[id] = cgiclass
+                print id, "Class:", cgiclass
+
+        diagramdata["classes"] = classes
+
+        # Associations
+        associations = []
+        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAssociationEnd"):
+            # Source
+            source_node = cgi.xpath("m_pSource/text()")
+            assert len(source_node) == 1
+            source = source_node[0]
+
+            sourcerole = ""
+            sourcerole_node = cgi.xpath("m_sourceRole/CGIText/m_str/text()")
+            if len(sourcerole_node) > 0:
+                sourcerole = sourcerole_node[0]
+
+            sourcemulti = ""
+            sourcemulti_node = cgi.xpath("m_sourceMultiplicity/CGIText/m_str/text()")
+            if len(sourcemulti_node) > 0:
+                sourcemulti = sourcemulti_node[0]
+
+            # Target
+            target_node = cgi.xpath("m_pTarget/text()")
+            assert len(target_node) == 1
+            target = target_node[0]
+
+            targetrole = ""
+            targetrole_node = cgi.xpath("m_targetRole/CGIText/m_str/text()")
+            if len(targetrole_node) > 0:
+                targetrole = targetrole_node[0]
+
+            targetmulti = ""
+            targetmulti_node = cgi.xpath("m_targetMultiplicity/CGIText/m_str/text()")
+            if len(targetmulti_node) > 0:
+                targetmulti = targetmulti_node[0]
+
+            assoc = {}
+            assoc["source"] = classes[source]["name"]
+            assoc["sourcerole"] = sourcerole
+            assoc["sourcemultiplicity"] = sourcemulti
+            assoc["target"] = classes[target]["name"]
+            assoc["targetrole"] = targetrole
+            assoc["targetmultiplicity"] = targetmulti
+            print "Assoc:", assoc["source"], sourcerole, " - ", assoc["target"], targetrole
+            associations.append(assoc)
+        diagramdata["associations"] = associations
+
+        # Packages
+        packages = []
+        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIPackage"):
+            pkg_node = cgi.xpath("m_name/CGIText/m_str/text()")
+            if len(pkg_node) > 0:
+                name = pkg_node[0]
+                id_node = cgi.xpath("_id/text()")
+                assert len(id_node) == 1
+                id = id_node[0]
+
+                print "Package:", name
+                pkg = {}
+                pkg["name"] = name
+                pkg["includes"] = []
+                for classid in classes:
+                    if classes[classid]["parent"] == id:
+                        pkg["includes"].append(classes[classid]["name"])
+
+                packages.append(pkg)
+        diagramdata["packages"] = packages
+
+        # Inheritance
+        inheritance = []
+        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIInheritance"):
+            source_node = cgi.xpath("m_pSource/text()")
+            assert len(source_node) == 1
+            source = source_node[0]
+
+            target_node = cgi.xpath("m_pTarget/text()")
+            assert len(target_node) == 1
+            target = target_node[0]
+
+            inherit = {}
+            inherit["source"] = classes[source]["name"]
+            inherit["target"] = classes[target]["name"]
+            print "Inherit:", inherit["source"], " - ", inherit["target"]
+            inheritance.append(inherit)
+        diagramdata["inheritance"] = inheritance
+
+    # Done
+    return diagramdata
+
 
 def find_nearest_lifeline(position):
     global data_lifelines
@@ -792,6 +928,12 @@ def find_nearest_lifeline(position):
 
 def quote_if_space(string):
     if " " in string:
+        return '"%s"' % (string)
+    else:
+        return string
+
+def quote_if_text(string):
+    if len(string) > 0:
         return '"%s"' % (string)
     else:
         return string
@@ -872,6 +1014,50 @@ def generate_plantuml(chartdata):
 
 
 
+def generate_plantuml_classdiagram(diagram):
+    print "" 
+    print "@startuml"
+    print "title", diagram["name"]
+    print ""
+
+    for id in diagram["classes"]:
+
+        # Check if included in a package
+        add_pkg_end = None
+        for pkg in diagram["packages"]:
+            for name in pkg["includes"]:
+                if name == diagram["classes"][id]["name"]:
+                    print "package %s {" % (pkg["name"])
+                    add_pkg_end = 1
+
+        if "stereotype" in diagram["classes"][id]:
+            type = "class"
+            if diagram["classes"][id]["stereotype"] == "Interface":
+                type = "interface"
+
+            print "%s %s <<%s>>" % (type,
+                                    diagram["classes"][id]["name"],
+                                    diagram["classes"][id]["stereotype"])
+        elif add_pkg_end:
+            print "  class", diagram["classes"][id]["name"]
+
+        if add_pkg_end:
+            print "}"
+
+
+    for data in diagram["inheritance"]:
+        print data["target"], "<|--", data["source"]
+
+    for data in diagram["associations"]:
+#        print "%s %s--> %s %s" % (data["source"], quote_if_text(data["sourcerole"]),
+#                                  quote_if_text(data["targetrole"]), data["target"])
+        print "%s %s--> %s %s : %s" % (data["source"], quote_if_text(data["sourcemultiplicity"]),
+                                  quote_if_text(data["targetmultiplicity"]), data["target"],
+                                  data["targetrole"])
+
+
+    print "@enduml"
+    print ""
 
 
 
@@ -965,6 +1151,12 @@ def print_sequencediagrams_list(xmlnode):
         name = diagram.xpath("_name/text()")[0]
         print "  ", name
 
+def print_classdiagram_list(xmlnode):
+    print "Object and Class Diagrams:" 
+    for diagram in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/value/IDiagram"):
+        name = diagram.xpath("_name/text()")[0]
+        print "  ", name
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(formatter_class = ArgumentDefaultsHelpFormatter)
@@ -973,6 +1165,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--list", dest="list", help="List extractable charts", action="store_true")
     parser.add_argument("-s", dest="sequence", help="Name of sequence diagram to generate to PlantUML")
     parser.add_argument("-u", dest="usecase", help="Name of usecase diagram to generate to PlantUML")
+    parser.add_argument("-c", dest="classdiagram", help="Name of class or object diagram to generate to PlantUML")
     options = parser.parse_args()
 
     if options.verbose:
@@ -984,6 +1177,7 @@ if __name__ == "__main__":
     if options.list:
         print_usecase_list(root)
         print_sequencediagrams_list(root)
+        print_classdiagram_list(root)
         sys.exit()
 
     # Parse global info
@@ -999,6 +1193,11 @@ if __name__ == "__main__":
     elif options.usecase:
         ucdata, diagram = parse_usecases(root, options.usecase)
         generate_plantuml_usecase(ucdata, diagram)
+
+    # Parse class
+    elif options.classdiagram:
+        data = parse_classdiagram(root, options.classdiagram)
+        generate_plantuml_classdiagram(data)
 
     else:
         print "No action given"
