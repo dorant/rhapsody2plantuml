@@ -253,7 +253,7 @@ def parse_classes(xml_node):
     """ Get all classes from an xml-node/root
     """
     global global_participants
-    for iclass in xml_node.findall(".//ISubsystem/Classes/IRPYRawContainer/IClass"):
+    for iclass in xml_node.findall("ISubsystem/Classes/IRPYRawContainer/IClass"):
         # Only add real classes
         if int(iclass.xpath("_myState/text()")[0]) == 8192:
             name = iclass.xpath("_name/text()")[0]
@@ -266,7 +266,9 @@ def parse_classes(xml_node):
 
             global_participants[id] = Participant(type, name)
             logging.debug("Added: %s for id=%s", global_participants[id], id)
-            
+    logging.debug("Added %s classes/interfaces", len(global_participants))
+
+
 # Global level
 def parse_actors(xml_node):
     """ Get all actors from an xml-node/root

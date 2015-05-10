@@ -60,10 +60,13 @@ void print_text_element(const char* element, const char* content);
 
 sbs:        sbs_header
             {
-                const char * header = "<?xml version=\"1.0\" ?>\n";
-                printf(header);
+                printf("<?xml version=\"1.0\" ?>\n");
+                printf("<rhapsody>\n");
             }
             definitions
+            {
+                printf("</rhapsody>\n");
+            }
             ;
 
 sbs_header: _RPY_ARCHIVE_VERSION_STR _RPY_ARCHIVE_VERSION_NO _CPP_STR _INT
