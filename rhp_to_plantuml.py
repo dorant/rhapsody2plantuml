@@ -138,11 +138,11 @@ class Position:
                                                                      self.bottom_right_x, self.bottom_right_y)
 
 
-PartType = enum('CLASS', 'ACTOR')
+PartType = enum('CLASS', 'INTERFACE', 'ACTOR')
 
 class Participant:
     def __init__(self, type, name=""):
-        if type not in (PartType.CLASS, PartType.ACTOR):
+        if type not in (PartType.CLASS, PartType.INTERFACE, PartType.ACTOR):
             raise ValueError('type not valid')
         self.type = type
         self.name = name
@@ -151,8 +151,18 @@ class Participant:
         self.associations = []
         self.dependencies = []
 
+    def type_to_string(self):
+        if self.type == PartType.CLASS:
+            return "Class"
+        elif self.type == PartType.INTERFACE:
+            return "Interface"
+        elif self.type == PartType.ACTOR:
+            return "Actor"
+        else:
+            assert None
+
     def __str__(self):
-        return "Participant(%s %s %s %s %s)" % (self.type, self.name, 
+        return "Participant(%s %s %s %s %s)" % (self.type_to_string(), self.name, 
                                                 self.dependencies, self.associations,
                                                 self.position)
 
@@ -181,12 +191,12 @@ class Message(Event):
         self.seq = 0
         self.sender = ""
         self.receiver = ""
-        self.type = MessageType.PRIMITIVE
+        self.msgtype = MessageType.PRIMITIVE
         self.source = ""
         self.target = ""
         
     def __str__(self):
-        return "Message(%s)" % (self.position)
+        return "Message(%s)" % (self.name)
 
 class ConditionStart(Event):
     def __init__(self):
@@ -249,8 +259,13 @@ def parse_classes(xml_node):
             name = iclass.xpath("_name/text()")[0]
             id = iclass.xpath("_id/text()")[0]
 
-            global_participants[id] = Participant(PartType.CLASS, name)
-            logging.debug("Added: %s", global_participants[id])
+            type = PartType.CLASS
+            for stereotype in iclass.xpath("Stereotypes/IRPYRawContainer/value/IHandle/_name/text()"):
+                if stereotype == "Interface":
+                    type = PartType.INTERFACE
+
+            global_participants[id] = Participant(type, name)
+            logging.debug("Added: %s for id=%s", global_participants[id], id)
             
 # Global level
 def parse_actors(xml_node):
@@ -265,7 +280,8 @@ def parse_actors(xml_node):
             actor = Participant(PartType.ACTOR, name)
 
             for depend_node in iactor.xpath("Dependencies/IRPYRawContainer/value/IDependency"):
-                if depend_node.xpath("_dependsOn/INObjectHandle/_m2Class/text()")[0] == "IActor":
+                dependType = depend_node.xpath("_dependsOn/INObjectHandle/_m2Class/text()")[0]
+                if dependType == "IActor" or dependType == "IUseCase":
                     actor.dependencies.append(depend_node.xpath("_dependsOn/INObjectHandle/_id/text()")[0])
 
             for assoc_node in iactor.xpath("Associations/IRPYRawContainer/value/IAssociationEnd"):
@@ -351,11 +367,12 @@ def parse_usecases(xml_node, find_name):
         data_usecase['associations'] = associations
         data_usecase['statechart'] = statechart
         data_usecases[id] = data_usecase
-        
+        logging.debug("Parsed usecase: %s", data_usecase)
 
     data_diagrams = {}
     for diagram in xml_node.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram[_name='" + find_name + "']"):
         name = diagram.xpath("_name/text()")[0]
+        logging.debug("Parsed uc-diagram name: %s", name)
 
         # Parse boxes in diagram
         data_diagram_rects = {}
@@ -383,6 +400,9 @@ def parse_usecases(xml_node, find_name):
                     data_diagram_rects[parent]['ucs'].append(id)
                 else:
                     data_diagram_ucs.append(id)
+
+        logging.debug("Parsed free usecases: %s", data_diagram_ucs)
+        logging.debug("Parsed uc-diagram boxes: %s", data_diagram_rects)
                     
         # Add results
         data_diagram = {}
@@ -557,14 +577,16 @@ def parse_sequencediagram(xml_node, find_name):
             if len(args) > 0:
                 msg.args = args[0]
 
-            msg.seq = int(imessage.xpath("m_szSequence/text()")[0].split(".")[0])
+            seq_node = imessage.xpath("m_szSequence/text()")
+            if len(seq_node) > 0:
+                msg.seq = int(seq_node[0].split(".")[0])
             msg.sender = imessage.xpath("m_pSender/IHandle/_id/text()")[0]
             msg.receiver = imessage.xpath("m_pReceiver/IHandle/_id/text()")[0]
             msg.id = imessage.xpath("_id/text()")[0]
 
             # Arrow style (PRIMITIVE (Default)/ REPLY)
             if imessage.xpath("m_eType/text()")[0] == "REPLY":
-                msg.type = MessageType.REPLY
+                msg.msgtype = MessageType.REPLY
 
             chartdata["events"].append(msg)
             logging.debug("Added: %s", msg)
@@ -925,6 +947,7 @@ def find_nearest_lifeline(position):
         else:
             smallest_part = part
             smallest_dist = dist
+    return smallest_part
 
 def quote_if_space(string):
     if " " in string:
@@ -944,6 +967,7 @@ def generate_plantuml(chartdata):
     print "@startuml"
     print "hide footbox"
     print "title", chartdata["name"]
+    print ""
 
     # Print order of participants
     for key, part in sorted(data_lifelines.iteritems(), key=lambda kvt: kvt[1].position.top_left_x):
@@ -957,9 +981,11 @@ def generate_plantuml(chartdata):
             print 'participant %s %s' % (quote_if_space(part.name), color)
 
         logging.debug("Position: %s", part.position)
+    print ""
 
     # Print all events(messages/conditions and more)
     for event in sorted(chartdata["events"], key=lambda x: x.position.top_left_y):
+        logging.debug("Print events: %s", event)
 
         # Handle messsage arrows
         if event.type == EventType.MESSAGE:
@@ -967,7 +993,7 @@ def generate_plantuml(chartdata):
             if event.type == MessageType.REPLY:
                 arrow = "-->"
                 
-            print '%s%s%s : %s(%s)' % (quote_if_space(data_lifelines[event.sender].name),
+            print '%s %s %s : %s(%s)' % (quote_if_space(data_lifelines[event.sender].name),
                                        arrow,
                                        quote_if_space(data_lifelines[event.receiver].name),
                                        event.name, event.args)
@@ -1126,12 +1152,16 @@ def generate_plantuml_usecase(ucdata, diagram):
         for rect in diagram[name]['rect_ucs']:
             rect_name = diagram[name]['rect_ucs'][rect]['name']
             rect_ucs = diagram[name]['rect_ucs'][rect]['ucs']
-            print 'rectangle "%s" {' % rect_name
+            logging.debug("%s %s", rect_name, rect_ucs)
+
+            print 'rectangle %s {' % quote_if_space(rect_name)
             for uc in rect_ucs:
                 for assoc in ucdata[uc]['associations']:
                     print '  %s -- (%s  [[%s]])' % (global_participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
-                for assoc in ucdata[uc]['dependencies']:
-                    print '  %s -- (%s  [[%s]])' % (global_participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
+                for dep in ucdata[uc]['dependencies']:
+                    if dep in global_participants:
+                        print '  %s -- (%s  [[%s]])' % (global_participants[dep].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
+                        
             print "}"
 
         print "@enduml"
