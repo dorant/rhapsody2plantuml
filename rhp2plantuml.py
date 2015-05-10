@@ -253,14 +253,14 @@ def parse_classes(xml_node):
     """ Get all classes from an xml-node/root
     """
     global global_participants
-    for iclass in xml_node.findall(".//ISubsystem/Classes/IRPYRawContainer/value/IClass"):
+    for iclass in xml_node.findall(".//ISubsystem/Classes/IRPYRawContainer/IClass"):
         # Only add real classes
         if int(iclass.xpath("_myState/text()")[0]) == 8192:
             name = iclass.xpath("_name/text()")[0]
             id = iclass.xpath("_id/text()")[0]
 
             type = PartType.CLASS
-            for stereotype in iclass.xpath("Stereotypes/IRPYRawContainer/value/IHandle/_name/text()"):
+            for stereotype in iclass.xpath("Stereotypes/IRPYRawContainer/IHandle/_name/text()"):
                 if stereotype == "Interface":
                     type = PartType.INTERFACE
 
@@ -272,19 +272,19 @@ def parse_actors(xml_node):
     """ Get all actors from an xml-node/root
     """
     global global_participants
-    for iactor in xml_node.findall(".//ISubsystem/Actors/IRPYRawContainer/value/IActor"):
+    for iactor in xml_node.findall(".//ISubsystem/Actors/IRPYRawContainer/IActor"):
         if int(iactor.xpath("_myState/text()")[0]) == 8192:
             name = iactor.xpath("_name/text()")[0]
             id = iactor.xpath("_id/text()")[0]
 
             actor = Participant(PartType.ACTOR, name)
 
-            for depend_node in iactor.xpath("Dependencies/IRPYRawContainer/value/IDependency"):
+            for depend_node in iactor.xpath("Dependencies/IRPYRawContainer/IDependency"):
                 dependType = depend_node.xpath("_dependsOn/INObjectHandle/_m2Class/text()")[0]
                 if dependType == "IActor" or dependType == "IUseCase":
                     actor.dependencies.append(depend_node.xpath("_dependsOn/INObjectHandle/_id/text()")[0])
 
-            for assoc_node in iactor.xpath("Associations/IRPYRawContainer/value/IAssociationEnd"):
+            for assoc_node in iactor.xpath("Associations/IRPYRawContainer/IAssociationEnd"):
                 if assoc_node.xpath("_otherClass/IClassifierHandle/_m2Class/text()")[0] == "IUseCase":
                     actor.associations.append(assoc_node.xpath("_otherClass/IClassifierHandle/_id/text()")[0])
 
@@ -293,16 +293,16 @@ def parse_actors(xml_node):
 
 # Parse a opt-box in a statechart
 def parse_conditions(node, events_result):
-    for occur in node.xpath("InteractionOccurrences/IRPYRawContainer/value/IInteractionOccurrence"):
+    for occur in node.xpath("InteractionOccurrences/IRPYRawContainer/IInteractionOccurrence"):
         msg = Reference()
         msg.id = occur.xpath("_id/text()")[0]
         msg.text = occur.xpath("_name/text()")[0]
         events_result.append(msg)
 
-    for fragment in node.xpath("CombinedFragments/IRPYRawContainer/value/ICombinedFragment"):
+    for fragment in node.xpath("CombinedFragments/IRPYRawContainer/ICombinedFragment"):
         cond = fragment.xpath("_interactionOperator/text()")[0]
         last_id = None
-        for operand in fragment.xpath("InteractionOperands/IRPYRawContainer/value/IInteractionOperand"):
+        for operand in fragment.xpath("InteractionOperands/IRPYRawContainer/IInteractionOperand"):
             id = operand.xpath("_id/text()")[0]
 
             # Start
@@ -342,22 +342,22 @@ def parse_conditions(node, events_result):
 def parse_usecases(xml_node, find_name):
 
     data_usecases = {}
-    for usecase in xml_node.findall(".//ISubsystem/UseCases/IRPYRawContainer/value/IUseCase"):
+    for usecase in xml_node.findall(".//ISubsystem/UseCases/IRPYRawContainer/IUseCase"):
         name = usecase.xpath("_name/text()")[0]
         id = usecase.xpath("_id/text()")[0]
 
         statechart = ""
-        statechart_list = usecase.xpath("Diagrams/IRPYRawContainer/value/IHandle/_id/text()")
+        statechart_list = usecase.xpath("Diagrams/IRPYRawContainer/IHandle/_id/text()")
         if len(statechart_list) > 0:
             statechart = statechart_list[0]
 
         depend = []
-        for depend_node in usecase.xpath("Dependencies/IRPYRawContainer/value/IDependency"):
+        for depend_node in usecase.xpath("Dependencies/IRPYRawContainer/IDependency"):
             if depend_node.xpath("_dependsOn/INObjectHandle/_m2Class/text()")[0] == "IUseCase":
                 depend.append(depend_node.xpath("_dependsOn/INObjectHandle/_id/text()")[0])
 
         associations = []
-        for assoc_node in usecase.xpath("Associations/IRPYRawContainer/value/IAssociationEnd"):
+        for assoc_node in usecase.xpath("Associations/IRPYRawContainer/IAssociationEnd"):
             if assoc_node.xpath("_otherClass/IClassifierHandle/_m2Class/text()")[0] == "IActor":
                 associations.append(assoc_node.xpath("_otherClass/IClassifierHandle/_id/text()")[0])
 
@@ -370,7 +370,7 @@ def parse_usecases(xml_node, find_name):
         logging.debug("Parsed usecase: %s", data_usecase)
 
     data_diagrams = {}
-    for diagram in xml_node.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram[_name='" + find_name + "']"):
+    for diagram in xml_node.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram[_name='" + find_name + "']"):
         name = diagram.xpath("_name/text()")[0]
         logging.debug("Parsed uc-diagram name: %s", name)
 
@@ -541,7 +541,7 @@ def parse_sequencediagram(xml_node, find_name):
 
         # Lifelines
         data_lifelines = {}
-        for iroles in collaboration.xpath("ClassifierRoles/IRPYRawContainer/value/IClassifierRole"):
+        for iroles in collaboration.xpath("ClassifierRoles/IRPYRawContainer/IClassifierRole"):
 
             type = PartType.CLASS
             if iroles.xpath("m_eRoleType/text()")[0] == "IActor":
@@ -569,7 +569,7 @@ def parse_sequencediagram(xml_node, find_name):
 
         # Messages
         chartdata["events"] = []
-        for imessage in collaboration.xpath("Messages/IRPYRawContainer/value/IMessage"):
+        for imessage in collaboration.xpath("Messages/IRPYRawContainer/IMessage"):
             msg = Message()
             msg.name = imessage.xpath("_name/text()")[0]
 
@@ -620,7 +620,7 @@ def parse_sequencediagram(xml_node, find_name):
                 if not msg_port_factor:
                     msg_port_factor = transform.scale_height
 
-                path = "_properties/IPropertyContainer/Subjects/IRPYRawContainer/value/IPropertySubject/Metaclasses/IRPYRawContainer/value/IPropertyMetaclass/Properties/IRPYRawContainer/value/"
+                path = "_properties/IPropertyContainer/Subjects/IRPYRawContainer/IPropertySubject/Metaclasses/IRPYRawContainer/IPropertyMetaclass/Properties/IRPYRawContainer/"
                 property_fill = column.xpath(path + "IProperty[_Name='Fill.FillStyle']/_Value/text()")
                 if len(property_fill) > 0:
                     data_lifelines[id].fillstyle = int(property_fill[0])
@@ -796,7 +796,7 @@ def parse_classdiagram(xml_node, find_name):
     diagramdata = {}
 
     # Parse a diagram (can exist in a IUseCase as well...
-    for diagram in xml_node.findall(".//ISubsystem/Declaratives/IRPYRawContainer/value/IDiagram[_name='" + find_name + "']"):
+    for diagram in xml_node.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IDiagram[_name='" + find_name + "']"):
         name = diagram.xpath("_name/text()")[0]
         print "  ", name
 
@@ -827,7 +827,7 @@ def parse_classdiagram(xml_node, find_name):
                 cgiclass["name"] = name
 
                 # Get stereotype
-                stereotype_node = cgi.xpath("_properties/IPropertyContainer/Subjects/IRPYRawContainer/value/IPropertySubject[_Name='ObjectModelGe']/Metaclasses/IRPYRawContainer/value/IPropertyMetaclass/_Name/text()")
+                stereotype_node = cgi.xpath("_properties/IPropertyContainer/Subjects/IRPYRawContainer/IPropertySubject[_Name='ObjectModelGe']/Metaclasses/IRPYRawContainer/IPropertyMetaclass/_Name/text()")
                 if len(stereotype_node) > 0:
                     cgiclass["stereotype"] = stereotype_node[0]
 
@@ -1170,7 +1170,7 @@ def generate_plantuml_usecase(ucdata, diagram):
 
 def print_usecase_list(xmlnode):
     print "Usecase diagrams:" 
-    for usecase in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/value/IUCDiagram"):
+    for usecase in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram"):
         name = usecase.xpath("_name/text()")[0]
         print "  ", name
 
@@ -1183,7 +1183,7 @@ def print_sequencediagrams_list(xmlnode):
 
 def print_classdiagram_list(xmlnode):
     print "Object and Class Diagrams:" 
-    for diagram in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/value/IDiagram"):
+    for diagram in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IDiagram"):
         name = diagram.xpath("_name/text()")[0]
         print "  ", name
 
