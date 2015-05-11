@@ -6,14 +6,16 @@
 DIR="$1"
 
 # Search for files containing either
-# -IMSC       - Sequence digrams
-# -IUCDiagram - Usecase diagrams
-# -IDiagrma   - Class/Object digrams
+# - IMSC       - Sequence digrams
+# - IUCDiagram - Usecase diagrams
+# - IDiagram   - Class/Object digrams
 PATTERN='{ IMSC\|{ IUCDiagram\|{ IDiagram'
 
 grep --include *.sbs -rl -e "$PATTERN" $DIR | while read -r file ; do
 
-    # Convert each file
+    # Convert each sbs to xml
     echo "Converting: $file"
     cat $file | sbs2xml/build/sbs2xml > ${file}.xml
+    # Convert each sbs.xml to diagrams
+    # TODO
 done
