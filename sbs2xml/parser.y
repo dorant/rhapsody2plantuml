@@ -33,7 +33,6 @@ void print_text_element(const char* element, const char* content);
 %type <str_type_char> _TYPE_CHAR
 %type <str_int> _INT
 %type <str_float> _FLOAT
-
 %type <str_number> number
 %type <str_numbers> numbers
 
@@ -60,7 +59,8 @@ void print_text_element(const char* element, const char* content);
 
 sbs:        sbs_header
             {
-                printf("<?xml version=\"1.0\" ?>\n");
+                // Rhapsody seems to generate a strange encoding..
+                printf("<?xml version=\"1.0\" encoding=\"windows-1252\"?>\n");
                 printf("<rhapsody>\n");
             }
             definitions
@@ -84,15 +84,24 @@ definition: _OBRACE _NAME
             {
                 printf("</%s>\n", $2);
             }
+
             // Skip size and value
             | _OBRACE _RPY_RAW_CONTAINER_STR '-' _SIZE '=' _INT ';'
             {
                 printf("<IRPYRawContainer>\n");
             }
-            values _EBRACE
+            container
             {
                 printf("</IRPYRawContainer>\n");
-            } 
+            }
+            ;
+
+container:  values _EBRACE
+            // Handle strange case of container
+            | '-' _VALUE '=' _STRING_LITERAL ';' _EBRACE
+            {
+                print_text_element("value", $4);
+            }
             ;
 
 values:     %empty

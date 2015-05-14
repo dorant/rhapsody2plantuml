@@ -16,6 +16,23 @@ grep --include *.sbs -rl -e "$PATTERN" $DIR | while read -r file ; do
     # Convert each sbs to xml
     echo "Converting: $file"
     cat $file | sbs2xml/build/sbs2xml > ${file}.xml
+
+    if [ $? -ne 0 ]; then
+        echo "  Failed to convert file to xml!!"
+        echo ""
+        echo "Check end of file for more detail:"
+        echo ${file}.xml
+        exit 1
+    fi
+
     # Convert each sbs.xml to diagrams
-    # TODO
+    echo "Parsing: ${file}.xml"
+    xml2plant/xml2plant.py -v -l ${file}.xml
+
+    if [ $? -ne 0 ]; then
+        echo "  Failed to parse file!!"
+        echo ""
+        exit 1
+    fi
+
 done
