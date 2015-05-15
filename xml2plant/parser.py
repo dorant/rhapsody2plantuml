@@ -240,14 +240,10 @@ class Reference(Event):
         return "Reference(%s)" % (self.position)
 
         
-# GLOBALS
-global_participants = {}
-
 # Global level
-def parse_classes(xml_node):
+def parse_classes(xml_node, participants):
     """ Get all classes from an xml-node/root
     """
-    global global_participants
     for iclass in xml_node.findall("ISubsystem/Classes/IRPYRawContainer/IClass"):
         # Only add real classes
         if int(iclass.xpath("_myState/text()")[0]) == 8192:
@@ -259,16 +255,14 @@ def parse_classes(xml_node):
                 if stereotype == "Interface":
                     type = PartType.INTERFACE
 
-            global_participants[id] = Participant(type, name)
-            logging.debug("Added: %s for id=%s", global_participants[id], id)
-    logging.debug("Added %s classes/interfaces", len(global_participants))
+            participants[id] = Participant(type, name)
+            logging.debug("Added: %s for id=%s", participants[id], id)
 
 
 # Global level
-def parse_actors(xml_node):
+def parse_actors(xml_node, participants):
     """ Get all actors from an xml-node/root
     """
-    global global_participants
     for iactor in xml_node.findall(".//ISubsystem/Actors/IRPYRawContainer/IActor"):
         if int(iactor.xpath("_myState/text()")[0]) == 8192:
             name = iactor.xpath("_name/text()")[0]
@@ -285,8 +279,8 @@ def parse_actors(xml_node):
                 if assoc_node.xpath("_otherClass/IClassifierHandle/_m2Class/text()")[0] == "IUseCase":
                     actor.associations.append(assoc_node.xpath("_otherClass/IClassifierHandle/_id/text()")[0])
 
-            global_participants[id] = actor
-            logging.debug("Added: %s", global_participants[id])
+            participants[id] = actor
+            logging.debug("Added: %s", participants[id])
 
 # Parse a opt-box in a statechart
 def parse_conditions(node, events_result):
@@ -306,7 +300,9 @@ def parse_conditions(node, events_result):
             if not last_id:
                 msg = ConditionStart()
                 msg.cond = cond
-                msg.text = operand.xpath("_interactionConstraint/text()")[0]
+                constraint = operand.xpath("_interactionConstraint/text()")
+                if len(constraint) > 0:
+                    msg.text = constraint[0]
                 msg.id = id
                 logging.debug("Added start: %s", msg)
                 logging.debug("         id: %s", id)
@@ -519,11 +515,10 @@ def get_merged_position(cgi_node, guid):
     return result
 
 
-def parse_sequencediagram(xml_node, find_name):
+def parse_sequencediagram(xml_node, participants, find_name):
     """ Parse a specific sequence diagram from an xml-node/root 
     """
-    global global_participants
-    global data_lifelines
+    lifelines = {}
     chartdata = {}
 
     # Parse a diagram (can exist in a IUseCase as well...
@@ -537,7 +532,6 @@ def parse_sequencediagram(xml_node, find_name):
         collaboration = chart.xpath("m_pICollaboration/ICollaboration")[0]
 
         # Lifelines
-        data_lifelines = {}
         for iroles in collaboration.xpath("ClassifierRoles/IRPYRawContainer/IClassifierRole"):
 
             type = PartType.CLASS
@@ -555,20 +549,22 @@ def parse_sequencediagram(xml_node, find_name):
                     part.name  = handle_name[0]
                 else:
                     guid = iroles.xpath("m_pBase/IHandle/_id/text()")[0]
-                    if guid in global_participants:
-                        part.name = global_participants[guid].name
+                    if guid in participants:
+                        part.name = participants[guid].name
                     else:
                         part.name = "Unknown"
                     
             id = iroles.xpath("_id/text()")[0]
-            data_lifelines[id] = part
+            lifelines[id] = part
 
 
         # Messages
         chartdata["events"] = []
         for imessage in collaboration.xpath("Messages/IRPYRawContainer/IMessage"):
             msg = Message()
-            msg.name = imessage.xpath("_name/text()")[0]
+            name = imessage.xpath("_name/text()")
+            if len(name) > 0:
+                msg.name = name[0]
 
             args = imessage.xpath("m_szActualArgs/text()")
             if len(args) > 0:
@@ -601,18 +597,18 @@ def parse_sequencediagram(xml_node, find_name):
         # CGI: Colums/splitlines - add extra info
         for column in cgi.xpath("CGIMscColumnCR"):
             guids = column.xpath("m_pModelObject/IHandle/_id/text()")
-            if len(guids) > 0 and guids[0] in data_lifelines:
+            if len(guids) > 0 and guids[0] in lifelines:
                 id = guids[0]
 
-                data_lifelines[id].position = Position(column.xpath("m_position/text()")[0])
+                lifelines[id].position = Position(column.xpath("m_position/text()")[0])
 
                 transform_node = column.xpath("m_transform/text()")
                 assert len(transform_node) == 1
                 transform = Transform(transform_node[0])
 #TODO: remove transform
-                data_lifelines[id].position.transform(transform)
+                lifelines[id].position.transform(transform)
                 logging.debug("Transform %s", transform)
-                logging.debug("Updated %s", data_lifelines[id])
+                logging.debug("Updated %s", lifelines[id])
 
                 if not msg_port_factor:
                     msg_port_factor = transform.scale_height
@@ -620,16 +616,19 @@ def parse_sequencediagram(xml_node, find_name):
                 path = "_properties/IPropertyContainer/Subjects/IRPYRawContainer/IPropertySubject/Metaclasses/IRPYRawContainer/IPropertyMetaclass/Properties/IRPYRawContainer/"
                 property_fill = column.xpath(path + "IProperty[_Name='Fill.FillStyle']/_Value/text()")
                 if len(property_fill) > 0:
-                    data_lifelines[id].fillstyle = int(property_fill[0])
+                    lifelines[id].fillstyle = int(property_fill[0])
                 else:
                     property_color = column.xpath(path + "IProperty[_Name='Fill.FillColor']/_Value/text()")
                     if len(property_color) > 0:
-                        data_lifelines[id].fillstyle = property_color[0]
+                        lifelines[id].fillstyle = property_color[0]
             else:
                 # Check for splitlines/dividers
                 if int(column.xpath("m_type/text()")[0]) == 120:
                     msg = Divider()
-                    msg.text = column.xpath("m_name/CGIText/m_str/text()")[0]
+
+                    divider_text = column.xpath("m_name/CGIText/m_str/text()")
+                    if len(divider_text) > 0:
+                        msg.text = divider_text[0]
 
                     msg.position = Position()
                     transform = Transform(column.xpath("m_transform/text()")[0])
@@ -783,19 +782,18 @@ def parse_sequencediagram(xml_node, find_name):
             #print anchor.xpath("m_pTarget/text()")[0]
 
     # Done
-    return chartdata
+    return lifelines, chartdata
 
 
-def parse_classdiagram(xml_node, find_name):
+def parse_classdiagram(xml_node, participants, find_name):
     """ Parse a specific class diagram from an xml-node/root 
     """
-    global global_participants
     diagramdata = {}
 
     # Parse a diagram (can exist in a IUseCase as well...
     for diagram in xml_node.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IDiagram[_name='" + find_name + "']"):
         name = diagram.xpath("_name/text()")[0]
-        print "  ", name
+        #print "  ", name
 
         # Chartname
         diagramdata["name"] = diagram.xpath("_name/text()")[0]
@@ -819,7 +817,7 @@ def parse_classdiagram(xml_node, find_name):
                     model_node = cgi.xpath("m_pModelObject/IHandle/_id/text()")
                     assert len(model_node) == 1
                     model_id = model_node[0]
-                    name = global_participants[model_id].name
+                    name = participants[model_id].name
 
                 cgiclass["name"] = name
 
@@ -835,7 +833,7 @@ def parse_classdiagram(xml_node, find_name):
 
 
                 classes[id] = cgiclass
-                print id, "Class:", cgiclass
+                #print id, "Class:", cgiclass
 
         diagramdata["classes"] = classes
 
@@ -879,7 +877,7 @@ def parse_classdiagram(xml_node, find_name):
             assoc["target"] = classes[target]["name"]
             assoc["targetrole"] = targetrole
             assoc["targetmultiplicity"] = targetmulti
-            print "Assoc:", assoc["source"], sourcerole, " - ", assoc["target"], targetrole
+            #print "Assoc:", assoc["source"], sourcerole, " - ", assoc["target"], targetrole
             associations.append(assoc)
         diagramdata["associations"] = associations
 
@@ -893,7 +891,7 @@ def parse_classdiagram(xml_node, find_name):
                 assert len(id_node) == 1
                 id = id_node[0]
 
-                print "Package:", name
+                #print "Package:", name
                 pkg = {}
                 pkg["name"] = name
                 pkg["includes"] = []
@@ -918,7 +916,7 @@ def parse_classdiagram(xml_node, find_name):
             inherit = {}
             inherit["source"] = classes[source]["name"]
             inherit["target"] = classes[target]["name"]
-            print "Inherit:", inherit["source"], " - ", inherit["target"]
+            #print "Inherit:", inherit["source"], " - ", inherit["target"]
             inheritance.append(inherit)
         diagramdata["inheritance"] = inheritance
 
@@ -927,21 +925,23 @@ def parse_classdiagram(xml_node, find_name):
 
 
 
-def print_usecase_list(xmlnode):
-    print "Usecase diagrams:" 
+def get_usecase_list(xmlnode):
+    result = []
     for usecase in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram"):
         name = usecase.xpath("_name/text()")[0]
-        print "  ", name
+        result.append(name)
+    return result
 
-
-def print_sequencediagrams_list(xmlnode):
-    print "Sequence diagrams:" 
+def get_sequence_list(xmlnode):
+    result = []
     for diagram in xmlnode.findall(".//IMSC"):
         name = diagram.xpath("_name/text()")[0]
-        print "  ", name
+        result.append(name)
+    return result
 
-def print_classdiagram_list(xmlnode):
-    print "Object and Class Diagrams:" 
+def get_class_list(xmlnode):
+    result = []
     for diagram in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IDiagram"):
         name = diagram.xpath("_name/text()")[0]
-        print "  ", name
+        result.append(name)
+    return result

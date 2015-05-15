@@ -27,7 +27,7 @@ grep --include *.sbs -rl -e "$PATTERN" $DIR | while read -r file ; do
 
     # Convert each sbs.xml to diagrams
     echo "Parsing: ${file}.xml"
-    xml2plant/xml2plant.py -v -l ${file}.xml
+    xml2plant/xml2plant.py -g ${file}.xml
 
     if [ $? -ne 0 ]; then
         echo "  Failed to parse file!!"

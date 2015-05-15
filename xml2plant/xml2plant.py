@@ -1,14 +1,18 @@
 #!/bin/env python
-
 import sys
 import logging
+import os.path
 from lxml import etree
 from argparse import ArgumentParser
 from argparse import ArgumentDefaultsHelpFormatter
 
-from parser import print_usecase_list
-from parser import print_sequencediagrams_list
-from parser import print_classdiagram_list
+from parser import PartType
+from parser import EventType
+from parser import MessageType
+
+from parser import get_usecase_list
+from parser import get_sequence_list
+from parser import get_class_list
 
 from parser import parse_classes
 from parser import parse_actors
@@ -17,13 +21,13 @@ from parser import parse_sequencediagram
 from parser import parse_classdiagram
 
 
-def find_nearest_lifeline(position):
-    global data_lifelines
+def find_nearest_lifeline(lifelines, position):
+
     # Start with large diff and unknown participant
     smallest_dist = 99999999
     smallest_part = None
 
-    for key, part in sorted(data_lifelines.iteritems(), key=lambda kvt: kvt[1].position.top_left_x):
+    for key, part in sorted(lifelines.iteritems(), key=lambda kvt: kvt[1].position.top_left_x):
         if smallest_part == None:
             smallest_part = part
 
@@ -49,27 +53,27 @@ def quote_if_text(string):
     else:
         return string
 
-def generate_plantuml(chartdata):
-    global data_lifelines
+def generate_plantuml_sequence(lifelines, chartdata):
+    result = []
 
-    print "@startuml"
-    print "hide footbox"
-    print "title", chartdata["name"]
-    print ""
+    result.append("@startuml")
+    result.append("hide footbox")
+    result.append("title %s" % chartdata["name"])
+    result.append("")
 
     # Print order of participants
-    for key, part in sorted(data_lifelines.iteritems(), key=lambda kvt: kvt[1].position.top_left_x):
+    for key, part in sorted(lifelines.iteritems(), key=lambda kvt: kvt[1].position.top_left_x):
         color = ""
         if part.fillstyle != 0:
             color = "#F5F5F5"
 
         if part.type == PartType.ACTOR:
-            print 'actor %s %s' % (quote_if_space(part.name), color)
+            result.append('actor %s %s' % (quote_if_space(part.name), color))
         else:
-            print 'participant %s %s' % (quote_if_space(part.name), color)
+            result.append('participant %s %s' % (quote_if_space(part.name), color))
 
         logging.debug("Position: %s", part.position)
-    print ""
+    result.append("")
 
     # Print all events(messages/conditions and more)
     for event in sorted(chartdata["events"], key=lambda x: x.position.top_left_y):
@@ -81,58 +85,60 @@ def generate_plantuml(chartdata):
             if event.type == MessageType.REPLY:
                 arrow = "-->"
                 
-            print '%s %s %s : %s(%s)' % (quote_if_space(data_lifelines[event.sender].name),
-                                       arrow,
-                                       quote_if_space(data_lifelines[event.receiver].name),
-                                       event.name, event.args)
+            result.append('%s %s %s : %s(%s)' % (quote_if_space(lifelines[event.sender].name),
+                                                 arrow,
+                                                 quote_if_space(lifelines[event.receiver].name),
+                                                 event.name, event.args))
 
         elif event.type == EventType.COND_START:
-            print event.cond, event.text
+            result.append("%s %s" % (event.cond, event.text))
 
         elif event.type == EventType.COND_ELSE:
-            print event.cond, event.text
+            result.append("%s %s" % (event.cond, event.text))
 
         elif event.type == EventType.COND_END:
-            print "end"
+            result.append("end")
 
 # TODO: span over many lifelines
         elif event.type == EventType.NOTE:
-            participant = find_nearest_lifeline(event.position)
+            participant = find_nearest_lifeline(lifelines, event.position)
             text = event.text
             if '\n' in text:
                 # Handle multiline notes
-                print 'note over %s' % (participant.name)
-                print text
-                print 'end note'
+                result.append('note over %s' % (participant.name))
+                result.append(text)
+                result.append('end note')
             else:
-                print 'note over %s: %s' % (participant.name, text)
+                result.append('note over %s: %s' % (participant.name, text))
 
 # TODO: span over many lifelines
         elif event.type == EventType.REF:
-            participant = find_nearest_lifeline(event.position)
+            participant = find_nearest_lifeline(lifelines, event.position)
             text = event.text
             if '\n' in text:
                 # Handle multiline reference
-                print 'ref over %s' % (participant.name)
-                print text
-                print 'end ref'
+                result.append('ref over %s' % (participant.name))
+                result.append(text)
+                result.append('end ref')
             else:
-                print 'ref over %s : %s' % (participant.name, text)
+                result.append('ref over %s : %s' % (participant.name, text))
 
         elif event.type == EventType.DIVIDER:
-            print "==", event.text, "=="
+            result.append("== %s ==" % event.text)
 
         logging.debug("Position: %s", event.position)
 
-    print "@enduml"
+    result.append("@enduml")
+    return result
 
 
 
 def generate_plantuml_classdiagram(diagram):
-    print "" 
-    print "@startuml"
-    print "title", diagram["name"]
-    print ""
+    result = []
+
+    result.append("@startuml")
+    result.append("title %s" % diagram["name"])
+    result.append("")
 
     for id in diagram["classes"]:
 
@@ -141,7 +147,7 @@ def generate_plantuml_classdiagram(diagram):
         for pkg in diagram["packages"]:
             for name in pkg["includes"]:
                 if name == diagram["classes"][id]["name"]:
-                    print "package %s {" % (pkg["name"])
+                    result.append("package %s {" % pkg["name"])
                     add_pkg_end = 1
 
         if "stereotype" in diagram["classes"][id]:
@@ -149,64 +155,64 @@ def generate_plantuml_classdiagram(diagram):
             if diagram["classes"][id]["stereotype"] == "Interface":
                 type = "interface"
 
-            print "%s %s <<%s>>" % (type,
-                                    diagram["classes"][id]["name"],
-                                    diagram["classes"][id]["stereotype"])
+            result.append("%s %s <<%s>>" % (type,
+                                            diagram["classes"][id]["name"],
+                                            diagram["classes"][id]["stereotype"]))
         elif add_pkg_end:
-            print "  class", diagram["classes"][id]["name"]
+            result.append("  class %s" % diagram["classes"][id]["name"])
 
         if add_pkg_end:
-            print "}"
+            result.append("}")
 
 
     for data in diagram["inheritance"]:
-        print data["target"], "<|--", data["source"]
+        result.append("%s %s %s" % (data["target"], "<|--", data["source"]))
 
     for data in diagram["associations"]:
-#        print "%s %s--> %s %s" % (data["source"], quote_if_text(data["sourcerole"]),
-#                                  quote_if_text(data["targetrole"]), data["target"])
-        print "%s %s--> %s %s : %s" % (data["source"], quote_if_text(data["sourcemultiplicity"]),
-                                  quote_if_text(data["targetmultiplicity"]), data["target"],
-                                  data["targetrole"])
+#        result.append("%s %s--> %s %s" % (data["source"], quote_if_text(data["sourcerole"]),
+#                                  quote_if_text(data["targetrole"]), data["target"]))
+        result.append("%s %s--> %s %s : %s" % (data["source"], quote_if_text(data["sourcemultiplicity"]),
+                                               quote_if_text(data["targetmultiplicity"]), data["target"],
+                                               data["targetrole"]))
 
 
-    print "@enduml"
-    print ""
+    result.append("@enduml")
+    return result    
 
 
-
-def generate_plantuml_usecase(ucdata, diagram):
+def generate_plantuml_usecase(ucdata, diagram, participants):
+    result = []
     for name in diagram:
-        print "@startuml"
-        print "title", name
-        print "left to right direction"
-        print ""
+        result.append("@startuml")
+        result.append("title %s" % name)
+        result.append("left to right direction")
+        result.append("")
 
         # Print actor (todo: only once!!)
         actors = []
 #        for uc_guid in diagram[name]['free_ucs']:
-#            actors.append(global_participants[uc_guid].name.replace(" ","_"))
+#            actors.append(participants[uc_guid].name.replace(" ","_"))
 
         for rect in diagram[name]['rect_ucs']:
             for uc in diagram[name]['rect_ucs'][rect]['ucs']:
                 # Add actors associated by usecase
                 for assoc in ucdata[uc]['associations']:
-                    actors.append(global_participants[assoc].name.replace(" ","_"))
+                    actors.append(participants[assoc].name.replace(" ","_"))
 
                 # Add actors that associates to the usecase
-                for guid in global_participants:
+                for guid in participants:
                     # Arrow is a dependency?
-                    for uc_guid in global_participants[guid].dependencies:
+                    for uc_guid in participants[guid].dependencies:
                         if uc_guid == uc:
-                            actors.append(global_participants[guid].name.replace(" ","_"))
+                            actors.append(participants[guid].name.replace(" ","_"))
                             # Add actor to the usecase
                             if guid not in ucdata[uc]['dependencies']:
                                 ucdata[uc]['dependencies'].append(guid)
 
                     # Arrow is a association?
-                    for uc_guid in global_participants[guid].associations:
+                    for uc_guid in participants[guid].associations:
                         if uc_guid == uc:
-                            actors.append(global_participants[guid].name.replace(" ","_"))
+                            actors.append(participants[guid].name.replace(" ","_"))
                             # Add actor to the usecase
                             if guid not in ucdata[uc]['associations']:
                                 ucdata[uc]['associations'].append(guid)
@@ -215,8 +221,8 @@ def generate_plantuml_usecase(ucdata, diagram):
         # remove duplicates
         actors = list(set(actors))
         for actor in actors:
-            print 'actor', actor
-        print ""
+            result.append('actor %s' % actor)
+        result.append("")
 
         # Get sequencediagram (can be within a usecase as well! Searching for tag only)
         charts = {}
@@ -229,12 +235,12 @@ def generate_plantuml_usecase(ucdata, diagram):
         # Adding global usecases
         for uc in diagram[name]['free_ucs']:
             for assoc in ucdata[uc]['associations']:
-                print '%s -- (%s  [[%s]])' % (global_participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
+                result.append('%s -- (%s  [[%s]])' % (participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']]))
 # TODO: dependency to other usecase
 
 #            for assoc in ucdata[uc]['dependencies']:
 #                print assoc
-#                print '%s -- (%s  [[%s]])' % (global_participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
+#                print '%s -- (%s  [[%s]])' % (participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
 
         # Adding boxes with usecases
         for rect in diagram[name]['rect_ucs']:
@@ -242,19 +248,32 @@ def generate_plantuml_usecase(ucdata, diagram):
             rect_ucs = diagram[name]['rect_ucs'][rect]['ucs']
             logging.debug("%s %s", rect_name, rect_ucs)
 
-            print 'rectangle %s {' % quote_if_space(rect_name)
+            result.append('rectangle %s {' % quote_if_space(rect_name))
             for uc in rect_ucs:
                 for assoc in ucdata[uc]['associations']:
-                    print '  %s -- (%s  [[%s]])' % (global_participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
+                    result.append('  %s -- (%s  [[%s]])' % (participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']]))
                 for dep in ucdata[uc]['dependencies']:
-                    if dep in global_participants:
-                        print '  %s -- (%s  [[%s]])' % (global_participants[dep].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
+                    if dep in participants:
+                        result.append('  %s -- (%s  [[%s]])' % (participants[dep].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']]))
                         
-            print "}"
+            result.append("}")
 
-        print "@enduml"
-        print ""
+        result.append("@enduml")
+        result.append("")
+    return result
 
+def print_diagram_names(xmlnode):
+    print "Usecase diagrams:" 
+    for name in get_usecase_list(xmlnode):
+        print "  ", name
+
+    print "Sequence diagrams:" 
+    for name in get_sequence_list(xmlnode):
+        print "  ", name
+
+    print "Object and Class Diagrams:" 
+    for name in get_class_list(xmlnode):
+        print "  ", name
 
 
 if __name__ == "__main__":
@@ -262,6 +281,7 @@ if __name__ == "__main__":
     parser.add_argument("file", help="XML file to parse")
     parser.add_argument("-v", dest="verbose", help="Enable verbose log", action="store_true")
     parser.add_argument("-l", "--list", dest="list", help="List extractable charts", action="store_true")
+    parser.add_argument("-g", "--generate", dest="generate", help="Generate all diagrams", action="store_true")
     parser.add_argument("-s", dest="sequence", help="Name of sequence diagram to generate to PlantUML")
     parser.add_argument("-u", dest="usecase", help="Name of usecase diagram to generate to PlantUML")
     parser.add_argument("-c", dest="classdiagram", help="Name of class or object diagram to generate to PlantUML")
@@ -274,29 +294,89 @@ if __name__ == "__main__":
     root = tree.getroot()
 
     if options.list:
-        print_usecase_list(root)
-        print_sequencediagrams_list(root)
-        print_classdiagram_list(root)
+        print_diagram_names(root)
         sys.exit()
 
-    # Parse global info
-    parse_classes(root)
-    parse_actors(root)
+    # Parse participants
+    participants = {}
+    parse_classes(root, participants)
+    parse_actors(root, participants)
 
-    # Parse sequence diagram
-    if options.sequence:
-        seqdata = parse_sequencediagram(root, options.sequence)
-        generate_plantuml(seqdata)
+    # Generate all diagrams
+    if options.generate:
+        path = os.path.join( os.path.dirname(options.file), "docs")
 
-    # Parse usecase
+        # Usecases
+        for name in get_usecase_list(root):
+            filename = os.path.join(path, "UC_" + name.replace(" ", "_") + ".plantuml")
+            print "- Generating:", filename
+
+            # Parse
+            ucdata, diagram = parse_usecases(root, name)
+            uml = generate_plantuml_usecase(ucdata, diagram, participants)
+
+            # Create folders needed
+            if not os.path.exists(os.path.dirname(filename)):
+                os.makedirs(os.path.dirname(filename))
+
+            # Save to file
+            f = open(filename,'w')
+            f.write('\n'.join(uml))
+            f.close()
+
+        # Sequence diagrams
+        for name in get_sequence_list(root):
+            filename = os.path.join(path, "SEQ_" + name.replace(" ", "_") + ".plantuml")
+            print "- Generating:", filename
+
+            # Parse
+            lifelines, seqdata = parse_sequencediagram(root, participants, name)
+            uml = generate_plantuml_sequence(lifelines, seqdata)
+
+            # Create folders needed
+            if not os.path.exists(os.path.dirname(filename)):
+                os.makedirs(os.path.dirname(filename))
+
+            # Save to file
+            f = open(filename,'w')
+            f.write('\n'.join(uml))
+            f.close()
+
+        # Class diagrams
+        for name in get_class_list(root):
+            filename = os.path.join(path, "CL_" + name.replace(" ", "_") + ".plantuml")
+            print "- Generating:", filename
+
+            # Parse
+            data = parse_classdiagram(root, participants, name)
+            uml = generate_plantuml_classdiagram(data)
+
+            # Create folders needed
+            if not os.path.exists(os.path.dirname(filename)):
+                os.makedirs(os.path.dirname(filename))
+
+            # Save to file
+            f = open(filename,'w')
+            f.write('\n'.join(uml))
+            f.close()
+
+    # Generate sequence diagram
+    elif options.sequence:
+        lifelines, seqdata = parse_sequencediagram(root, participants, options.sequence)
+        uml = generate_plantuml_sequence(lifelines, seqdata)
+        print '\n'.join(uml)
+
+    # Generate usecase diagram
     elif options.usecase:
         ucdata, diagram = parse_usecases(root, options.usecase)
-        generate_plantuml_usecase(ucdata, diagram)
+        uml = generate_plantuml_usecase(ucdata, diagram, participants)
+        print '\n'.join(uml)
 
-    # Parse class
+    # Generate class/object diagram
     elif options.classdiagram:
-        data = parse_classdiagram(root, options.classdiagram)
-        generate_plantuml_classdiagram(data)
+        data = parse_classdiagram(root, participants, options.classdiagram)
+        uml = generate_plantuml_classdiagram(data)
+        print '\n'.join(uml)
 
     else:
         print "No action given"
