@@ -332,79 +332,6 @@ def parse_conditions(node, events_result):
         logging.debug("       type: %s", cond)
 
 
-def parse_usecases(xml_node, find_name):
-
-    data_usecases = {}
-    for usecase in xml_node.findall(".//ISubsystem/UseCases/IRPYRawContainer/IUseCase"):
-        name = usecase.xpath("_name/text()")[0]
-        id = usecase.xpath("_id/text()")[0]
-
-        statechart = ""
-        statechart_list = usecase.xpath("Diagrams/IRPYRawContainer/IHandle/_id/text()")
-        if len(statechart_list) > 0:
-            statechart = statechart_list[0]
-
-        depend = []
-        for depend_node in usecase.xpath("Dependencies/IRPYRawContainer/IDependency"):
-            if depend_node.xpath("_dependsOn/INObjectHandle/_m2Class/text()")[0] == "IUseCase":
-                depend.append(depend_node.xpath("_dependsOn/INObjectHandle/_id/text()")[0])
-
-        associations = []
-        for assoc_node in usecase.xpath("Associations/IRPYRawContainer/IAssociationEnd"):
-            if assoc_node.xpath("_otherClass/IClassifierHandle/_m2Class/text()")[0] == "IActor":
-                associations.append(assoc_node.xpath("_otherClass/IClassifierHandle/_id/text()")[0])
-
-        data_usecase = {}
-        data_usecase['name'] = name
-        data_usecase['dependencies'] = depend
-        data_usecase['associations'] = associations
-        data_usecase['statechart'] = statechart
-        data_usecases[id] = data_usecase
-        logging.debug("Parsed usecase: %s", data_usecase)
-
-    data_diagrams = {}
-    for diagram in xml_node.xpath(".//ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram[_name='" + find_name + "']"):
-        name = diagram.xpath("_name/text()")[0]
-        logging.debug("Parsed uc-diagram name: %s", name)
-
-        # Parse boxes in diagram
-        data_diagram_rects = {}
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIBox"):
-            id = cgi.xpath("_id/text()")[0]
-
-            box_name = ""
-            box_name_list = cgi.xpath("m_name/CGIText/m_str/text()")
-            if len(box_name_list) > 0:
-                box_name = box_name_list[0]
-
-            data_diagram_rect = {}
-            data_diagram_rect['name'] = box_name
-            data_diagram_rect['ucs']  = []
-            data_diagram_rects[id] = data_diagram_rect
-
-        # Parse usecases in diagram
-        data_diagram_ucs = []
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass"):
-            parent = cgi.xpath("m_pParent/text()")[0]
-            guids = cgi.xpath("m_pModelObject/IHandle/_id/text()")
-            if len(guids) > 0 and guids[0] in data_usecases:
-                id = guids[0]
-                if parent in data_diagram_rects:
-                    data_diagram_rects[parent]['ucs'].append(id)
-                else:
-                    data_diagram_ucs.append(id)
-
-        logging.debug("Parsed free usecases: %s", data_diagram_ucs)
-        logging.debug("Parsed uc-diagram boxes: %s", data_diagram_rects)
-                    
-        # Add results
-        data_diagram = {}
-        data_diagram["rect_ucs"] = data_diagram_rects
-        data_diagram["free_ucs"] = data_diagram_ucs
-        data_diagrams[name] = data_diagram
-
-    return data_usecases, data_diagrams
-
 
 
 def get_scale_factor(type, cgi_node, guid):
@@ -924,13 +851,6 @@ def parse_classdiagram(xml_node, participants, find_name):
     return diagramdata
 
 
-
-def get_usecase_list(xmlnode):
-    result = []
-    for usecase in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram"):
-        name = usecase.xpath("_name/text()")[0]
-        result.append(name)
-    return result
 
 def get_sequence_list(xmlnode):
     result = []

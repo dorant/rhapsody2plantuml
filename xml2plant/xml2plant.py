@@ -6,19 +6,21 @@ from lxml import etree
 from argparse import ArgumentParser
 from argparse import ArgumentDefaultsHelpFormatter
 
-from parser import PartType
-from parser import EventType
-from parser import MessageType
+from parsers.parser import PartType
+from parsers.parser import EventType
+from parsers.parser import MessageType
 
-from parser import get_usecase_list
-from parser import get_sequence_list
-from parser import get_class_list
+from parsers.parser import parse_classes
+from parsers.parser import parse_actors
 
-from parser import parse_classes
-from parser import parse_actors
-from parser import parse_usecases
-from parser import parse_sequencediagram
-from parser import parse_classdiagram
+from parsers.usecase import get_usecase_list
+from parsers.usecase import parse_usecasediagram
+
+from parsers.parser import get_sequence_list
+from parsers.parser import parse_sequencediagram
+
+from parsers.parser import get_class_list
+from parsers.parser import parse_classdiagram
 
 
 def find_nearest_lifeline(lifelines, position):
@@ -180,7 +182,7 @@ def generate_plantuml_classdiagram(diagram):
     return result    
 
 
-def generate_plantuml_usecase(ucdata, diagram, participants):
+def generate_plantuml_usecase(ucdata, participants, diagram):
     result = []
     for name in diagram:
         result.append("@startuml")
@@ -188,59 +190,43 @@ def generate_plantuml_usecase(ucdata, diagram, participants):
         result.append("left to right direction")
         result.append("")
 
-        # Print actor (todo: only once!!)
-        actors = []
-#        for uc_guid in diagram[name]['free_ucs']:
-#            actors.append(participants[uc_guid].name.replace(" ","_"))
-
-        for rect in diagram[name]['rect_ucs']:
-            for uc in diagram[name]['rect_ucs'][rect]['ucs']:
-                # Add actors associated by usecase
-                for assoc in ucdata[uc]['associations']:
-                    actors.append(participants[assoc].name.replace(" ","_"))
-
-                # Add actors that associates to the usecase
-                for guid in participants:
-                    # Arrow is a dependency?
-                    for uc_guid in participants[guid].dependencies:
-                        if uc_guid == uc:
-                            actors.append(participants[guid].name.replace(" ","_"))
-                            # Add actor to the usecase
-                            if guid not in ucdata[uc]['dependencies']:
-                                ucdata[uc]['dependencies'].append(guid)
-
-                    # Arrow is a association?
-                    for uc_guid in participants[guid].associations:
-                        if uc_guid == uc:
-                            actors.append(participants[guid].name.replace(" ","_"))
-                            # Add actor to the usecase
-                            if guid not in ucdata[uc]['associations']:
-                                ucdata[uc]['associations'].append(guid)
-
-
-        # remove duplicates
-        actors = list(set(actors))
-        for actor in actors:
+        # Print actors
+        for id in participants:
+            actor = participants[id].name.replace(" ","_")
             result.append('actor %s' % actor)
+            logging.debug("Using actor: %s", participants[id])
         result.append("")
 
-        # Get sequencediagram (can be within a usecase as well! Searching for tag only)
-        charts = {}
-        charts[""] = ""
-        for chart in root.xpath(".//IMSC"):
-            id = chart.xpath("_id/text()")[0]
-            charts[id] = chart.xpath("_name/text()")[0]
-            
+        # Adding global notes
+        for note in diagram[name]['notes']:
+            if len(note["anchor"]) == 0:
+                result.append('note left')
+                result.append('%s' % note["text"])
+                result.append('end note')
+                result.append("")
 
         # Adding global usecases
         for uc in diagram[name]['free_ucs']:
+            # Add associations to participants
             for assoc in ucdata[uc]['associations']:
-                result.append('%s -- (%s  [[%s]])' % (participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']]))
-# TODO: dependency to other usecase
+                if assoc in participants:
+                    result.append('(%s  [[link]]) --> %s' % (ucdata[uc]['name'], participants[assoc].name.replace(" ","_") ))
 
-#            for assoc in ucdata[uc]['dependencies']:
-#                print assoc
-#                print '%s -- (%s  [[%s]])' % (participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']])
+            # Add associations to the usecase
+            for id in participants:
+                for uc_guid in participants[id].associations:
+                    if uc_guid == uc:
+                        if id not in ucdata[uc]['associations']:
+                            result.append('%s --> (%s  [[link]])' % (participants[id].name.replace(" ","_"), ucdata[uc]['name'] ))
+
+            # Add dependencies
+            for dep in ucdata[uc]['dependencies']:
+                if dep in ucdata:
+                    result.append('(%s  [[link]]) ..> (%s  [[link]])' % (ucdata[uc]['name'], ucdata[dep]['name'] ))
+
+        # Space if needed
+        if len(diagram[name]['free_ucs']) > 0:
+            result.append("")
 
         # Adding boxes with usecases
         for rect in diagram[name]['rect_ucs']:
@@ -250,14 +236,40 @@ def generate_plantuml_usecase(ucdata, diagram, participants):
 
             result.append('rectangle %s {' % quote_if_space(rect_name))
             for uc in rect_ucs:
+                # Add associations to participants
                 for assoc in ucdata[uc]['associations']:
-                    result.append('  %s -- (%s  [[%s]])' % (participants[assoc].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']]))
+                    if assoc in participants:
+                        result.append('  (%s  [[link]]) --> %s' % (ucdata[uc]['name'], participants[assoc].name.replace(" ","_") ))
+
+                # Add associations to the usecase
+                for id in participants:
+                    for uc_guid in participants[id].associations:
+                        if uc_guid == uc:
+                            if id not in ucdata[uc]['associations']:
+                                result.append('  %s --> (%s  [[link]])' % (participants[id].name.replace(" ","_"), ucdata[uc]['name'] ))
+
+                # Add dependencies
                 for dep in ucdata[uc]['dependencies']:
-                    if dep in participants:
-                        result.append('  %s -- (%s  [[%s]])' % (participants[dep].name.replace(" ","_"), ucdata[uc]['name'], charts[ucdata[uc]['statechart']]))
-                        
+                    if dep in ucdata:
+                        result.append('  (%s  [[link]]) ..> (%s  [[link]])' % (ucdata[uc]['name'], ucdata[dep]['name'] ))
+
             result.append("}")
 
+        # Adding specific notes
+        for note in diagram[name]['notes']:
+            if len(note["anchor"]) > 0:
+                anchor_name = ""
+                if note["anchor"][0] in participants:
+                    anchor_name = participants[note["anchor"][0]].name.replace(" ","_")
+
+                if note["anchor"][0] in ucdata:
+                    anchor_name = ucdata[note["anchor"][0]]['name']
+
+                result.append('note left of %s' % anchor_name)
+                result.append('%s' % note["text"])
+                result.append('end note')
+
+        # Done
         result.append("@enduml")
         result.append("")
     return result
@@ -312,8 +324,8 @@ if __name__ == "__main__":
             print "- Generating:", filename
 
             # Parse
-            ucdata, diagram = parse_usecases(root, name)
-            uml = generate_plantuml_usecase(ucdata, diagram, participants)
+            ucdata, uc_participants, diagram = parse_usecasediagram(root, participants, name)
+            uml = generate_plantuml_usecase(ucdata, uc_participants, diagram)
 
             # Create folders needed
             if not os.path.exists(os.path.dirname(filename)):
@@ -368,8 +380,8 @@ if __name__ == "__main__":
 
     # Generate usecase diagram
     elif options.usecase:
-        ucdata, diagram = parse_usecases(root, options.usecase)
-        uml = generate_plantuml_usecase(ucdata, diagram, participants)
+        ucdata, uc_participants, diagram = parse_usecasediagram(root, participants, options.usecase)
+        uml = generate_plantuml_usecase(ucdata, uc_participants,  diagram)
         print '\n'.join(uml)
 
     # Generate class/object diagram
