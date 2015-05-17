@@ -16,11 +16,12 @@ from parsers.parser import parse_actors
 from parsers.usecase import get_usecase_list
 from parsers.usecase import parse_usecasediagram
 
+from parsers.classdiagram import get_class_list
+from parsers.classdiagram import parse_classdiagram
+
 from parsers.parser import get_sequence_list
 from parsers.parser import parse_sequencediagram
 
-from parsers.parser import get_class_list
-from parsers.parser import parse_classdiagram
 
 
 def find_nearest_lifeline(lifelines, position):
@@ -142,14 +143,34 @@ def generate_plantuml_classdiagram(diagram):
     result.append("title %s" % diagram["name"])
     result.append("")
 
+    # Add packages not including any classes
+    add_newline = None
+    for pkgid in diagram["packages"]:
+        if len(diagram["packages"][pkgid]["includes"]) == 0:
+            result.append("package %s {}" % diagram["packages"][pkgid]["name"])
+            add_newline = 1
+
+    if add_newline:
+        result.append("")
+
+    # Add actors definition
+    add_newline = None
+    for id in diagram["actors"]:
+        result.append("class %s << Actor >>" % diagram["actors"][id])
+        add_newline = 1
+
+    if add_newline:
+        result.append("")
+
+    # Add classes
     for id in diagram["classes"]:
 
         # Check if included in a package
         add_pkg_end = None
-        for pkg in diagram["packages"]:
-            for name in pkg["includes"]:
+        for pkgid in diagram["packages"]:
+            for name in diagram["packages"][pkgid]["includes"]:
                 if name == diagram["classes"][id]["name"]:
-                    result.append("package %s {" % pkg["name"])
+                    result.append("package %s {" % diagram["packages"][pkgid]["name"])
                     add_pkg_end = 1
 
         if "stereotype" in diagram["classes"][id]:

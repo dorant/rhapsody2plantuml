@@ -239,25 +239,31 @@ class Reference(Event):
     def __str__(self):
         return "Reference(%s)" % (self.position)
 
-        
+# Parse specified class and its subclasses (recursive)
+def parse_class(xml_node, participants, base_name):
+    if int(xml_node.xpath("_myState/text()")[0]) == 8192:
+        # Only add real classes
+        name = xml_node.xpath("_name/text()")[0]
+        name = base_name + name
+        id = xml_node.xpath("_id/text()")[0]
+
+        type = PartType.CLASS
+        for stereotype in xml_node.xpath("Stereotypes/IRPYRawContainer/IHandle/_name/text()"):
+            if stereotype == "Interface":
+                type = PartType.INTERFACE
+
+        participants[id] = Participant(type, name)
+        logging.debug("Added: %s for id=%s", participants[id], id)
+
+        for subclass in xml_node.findall("Declaratives/IRPYRawContainer/IClass"):
+            parse_class(subclass, participants, name + "::")
+
 # Global level
 def parse_classes(xml_node, participants):
     """ Get all classes from an xml-node/root
     """
     for iclass in xml_node.findall("ISubsystem/Classes/IRPYRawContainer/IClass"):
-        # Only add real classes
-        if int(iclass.xpath("_myState/text()")[0]) == 8192:
-            name = iclass.xpath("_name/text()")[0]
-            id = iclass.xpath("_id/text()")[0]
-
-            type = PartType.CLASS
-            for stereotype in iclass.xpath("Stereotypes/IRPYRawContainer/IHandle/_name/text()"):
-                if stereotype == "Interface":
-                    type = PartType.INTERFACE
-
-            participants[id] = Participant(type, name)
-            logging.debug("Added: %s for id=%s", participants[id], id)
-
+        parse_class(iclass, participants, "")
 
 # Global level
 def parse_actors(xml_node, participants):
@@ -712,156 +718,9 @@ def parse_sequencediagram(xml_node, participants, find_name):
     return lifelines, chartdata
 
 
-def parse_classdiagram(xml_node, participants, find_name):
-    """ Parse a specific class diagram from an xml-node/root 
-    """
-    diagramdata = {}
-
-    # Parse a diagram (can exist in a IUseCase as well...
-    for diagram in xml_node.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IDiagram[_name='" + find_name + "']"):
-        name = diagram.xpath("_name/text()")[0]
-        #print "  ", name
-
-        # Chartname
-        diagramdata["name"] = diagram.xpath("_name/text()")[0]
-
-        root = diagram.xpath("_graphicChart/CGIClassChart/m_pRoot/text()")[0]
-
-        # Class
-        classes = {}
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIClass"):
-            id_node = cgi.xpath("_id/text()")
-            assert len(id_node) == 1
-            id = id_node[0]
-
-            if id != root:
-                cgiclass = {}
-                # Get name
-                model_node = cgi.xpath("m_pModelObject/IHandle/_name/text()")
-                if len(model_node) == 1:
-                    name = model_node[0]
-                else:
-                    model_node = cgi.xpath("m_pModelObject/IHandle/_id/text()")
-                    assert len(model_node) == 1
-                    model_id = model_node[0]
-                    name = participants[model_id].name
-
-                cgiclass["name"] = name
-
-                # Get stereotype
-                stereotype_node = cgi.xpath("_properties/IPropertyContainer/Subjects/IRPYRawContainer/IPropertySubject[_Name='ObjectModelGe']/Metaclasses/IRPYRawContainer/IPropertyMetaclass/_Name/text()")
-                if len(stereotype_node) > 0:
-                    cgiclass["stereotype"] = stereotype_node[0]
-
-                # Get parent
-                parent_node = cgi.xpath("m_pParent/text()")
-                assert len(parent_node) == 1
-                cgiclass["parent"] = parent_node[0]
-
-
-                classes[id] = cgiclass
-                #print id, "Class:", cgiclass
-
-        diagramdata["classes"] = classes
-
-        # Associations
-        associations = []
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAssociationEnd"):
-            # Source
-            source_node = cgi.xpath("m_pSource/text()")
-            assert len(source_node) == 1
-            source = source_node[0]
-
-            sourcerole = ""
-            sourcerole_node = cgi.xpath("m_sourceRole/CGIText/m_str/text()")
-            if len(sourcerole_node) > 0:
-                sourcerole = sourcerole_node[0]
-
-            sourcemulti = ""
-            sourcemulti_node = cgi.xpath("m_sourceMultiplicity/CGIText/m_str/text()")
-            if len(sourcemulti_node) > 0:
-                sourcemulti = sourcemulti_node[0]
-
-            # Target
-            target_node = cgi.xpath("m_pTarget/text()")
-            assert len(target_node) == 1
-            target = target_node[0]
-
-            targetrole = ""
-            targetrole_node = cgi.xpath("m_targetRole/CGIText/m_str/text()")
-            if len(targetrole_node) > 0:
-                targetrole = targetrole_node[0]
-
-            targetmulti = ""
-            targetmulti_node = cgi.xpath("m_targetMultiplicity/CGIText/m_str/text()")
-            if len(targetmulti_node) > 0:
-                targetmulti = targetmulti_node[0]
-
-            assoc = {}
-            assoc["source"] = classes[source]["name"]
-            assoc["sourcerole"] = sourcerole
-            assoc["sourcemultiplicity"] = sourcemulti
-            assoc["target"] = classes[target]["name"]
-            assoc["targetrole"] = targetrole
-            assoc["targetmultiplicity"] = targetmulti
-            #print "Assoc:", assoc["source"], sourcerole, " - ", assoc["target"], targetrole
-            associations.append(assoc)
-        diagramdata["associations"] = associations
-
-        # Packages
-        packages = []
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIPackage"):
-            pkg_node = cgi.xpath("m_name/CGIText/m_str/text()")
-            if len(pkg_node) > 0:
-                name = pkg_node[0]
-                id_node = cgi.xpath("_id/text()")
-                assert len(id_node) == 1
-                id = id_node[0]
-
-                #print "Package:", name
-                pkg = {}
-                pkg["name"] = name
-                pkg["includes"] = []
-                for classid in classes:
-                    if classes[classid]["parent"] == id:
-                        pkg["includes"].append(classes[classid]["name"])
-
-                packages.append(pkg)
-        diagramdata["packages"] = packages
-
-        # Inheritance
-        inheritance = []
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIInheritance"):
-            source_node = cgi.xpath("m_pSource/text()")
-            assert len(source_node) == 1
-            source = source_node[0]
-
-            target_node = cgi.xpath("m_pTarget/text()")
-            assert len(target_node) == 1
-            target = target_node[0]
-
-            inherit = {}
-            inherit["source"] = classes[source]["name"]
-            inherit["target"] = classes[target]["name"]
-            #print "Inherit:", inherit["source"], " - ", inherit["target"]
-            inheritance.append(inherit)
-        diagramdata["inheritance"] = inheritance
-
-    # Done
-    return diagramdata
-
-
-
 def get_sequence_list(xmlnode):
     result = []
     for diagram in xmlnode.findall(".//IMSC"):
-        name = diagram.xpath("_name/text()")[0]
-        result.append(name)
-    return result
-
-def get_class_list(xmlnode):
-    result = []
-    for diagram in xmlnode.findall(".//ISubsystem/Declaratives/IRPYRawContainer/IDiagram"):
         name = diagram.xpath("_name/text()")[0]
         result.append(name)
     return result

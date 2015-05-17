@@ -4,9 +4,9 @@ import logging
 from parsers.parser import Participant
 from parsers.parser import PartType
 
-def get_usecase_list(xmlnode):
+def get_usecase_list(xml_node):
     result = []
-    for usecase in xmlnode.findall("ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram"):
+    for usecase in xml_node.findall("ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram"):
         name = usecase.xpath("_name/text()")[0]
         result.append(name)
     return result
@@ -55,12 +55,13 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
     # Get all usecases
     data_usecases = parse_usecases(xml_node)
 
-    # Get the usecase diagram
     participants = {}
     data_diagrams = {}
+
+    # Get the usecase diagram
     for diagram in xml_node.xpath("ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram[_name='" + find_name + "']"):
         name = diagram.xpath("_name/text()")[0]
-        logging.debug("Parsed uc-diagram name: %s", name)
+        logging.debug("Parsing uc-diagram: %s", name)
 
         # Parse boxes in diagram
         data_diagram_rects = {}
