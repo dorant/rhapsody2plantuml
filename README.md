@@ -24,7 +24,13 @@ make
 ```
 
 ##### Usage
+Convert all existing diagrams in a project.
+The command will stop when hitting an error.
+```
+./convert.sh ~/my_rhapsody_project
+```
+
+Using the force flag all diagrams can be converted even if a single diagram fails:
 ```
 ./convert.sh -f ~/my_rhapsody_project
-
 ```
