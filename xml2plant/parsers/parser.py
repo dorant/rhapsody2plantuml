@@ -585,7 +585,7 @@ def parse_sequencediagram(xml_node, participants, find_name):
                         # The value is not including the top 50 pixels
                         assert msg_port_factor != None
                         port = message.xpath("m_SourcePort/text()")[0]
-                        assert int(port.split()[0]) == 48
+
                         port = int(port.split()[1])
                         y_value = int(port * msg_port_factor) + 50
 

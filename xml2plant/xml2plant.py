@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python2
 import sys
 import logging
 import os.path
@@ -108,11 +108,11 @@ def generate_plantuml_sequence(lifelines, chartdata):
             text = event.text
             if '\n' in text:
                 # Handle multiline notes
-                result.append('note over %s' % (participant.name))
+                result.append('note over %s' % (quote_if_space(participant.name)))
                 result.append(text)
                 result.append('end note')
             else:
-                result.append('note over %s: %s' % (participant.name, text))
+                result.append('note over %s: %s' % (quote_if_space(participant.name), text))
 
 # TODO: span over many lifelines
         elif event.type == EventType.REF:
@@ -120,11 +120,11 @@ def generate_plantuml_sequence(lifelines, chartdata):
             text = event.text
             if '\n' in text:
                 # Handle multiline reference
-                result.append('ref over %s' % (participant.name))
+                result.append('ref over %s' % (quote_if_space(participant.name)))
                 result.append(text)
                 result.append('end ref')
             else:
-                result.append('ref over %s : %s' % (participant.name, text))
+                result.append('ref over %s : %s' % (quote_if_space(participant.name), text))
 
         elif event.type == EventType.DIVIDER:
             result.append("== %s ==" % event.text)
@@ -187,6 +187,14 @@ def generate_plantuml_classdiagram(diagram):
         if add_pkg_end:
             result.append("}")
 
+    # Add types
+    add_newline = None
+    for id in diagram["types"]:
+        result.append("class %s << Type >>" % (diagram["types"][id]["name"]))
+        add_newline = 1
+
+    if add_newline:
+        result.append("")
 
     for data in diagram["inheritance"]:
         result.append("%s %s %s" % (data["target"], "<|--", data["source"]))
@@ -342,7 +350,7 @@ if __name__ == "__main__":
         # Usecases
         for name in get_usecase_list(root):
             filename = os.path.join(path, "UC_" + name.replace(" ", "_") + ".plantuml")
-            print "- Generating:", filename
+            print "   Generating:", filename
 
             # Parse
             ucdata, uc_participants, diagram = parse_usecasediagram(root, participants, name)
@@ -354,13 +362,13 @@ if __name__ == "__main__":
 
             # Save to file
             f = open(filename,'w')
-            f.write('\n'.join(uml))
+            f.write('\n'.join(uml).encode('ascii',errors='ignore'))
             f.close()
 
         # Sequence diagrams
         for name in get_sequence_list(root):
             filename = os.path.join(path, "SEQ_" + name.replace(" ", "_") + ".plantuml")
-            print "- Generating:", filename
+            print "   Generating:", filename
 
             # Parse
             lifelines, seqdata = parse_sequencediagram(root, participants, name)
@@ -372,13 +380,13 @@ if __name__ == "__main__":
 
             # Save to file
             f = open(filename,'w')
-            f.write('\n'.join(uml))
+            f.write('\n'.join(uml).encode('ascii',errors='ignore'))
             f.close()
 
         # Class diagrams
         for name in get_class_list(root):
             filename = os.path.join(path, "CL_" + name.replace(" ", "_") + ".plantuml")
-            print "- Generating:", filename
+            print "   Generating:", filename
 
             # Parse
             data = parse_classdiagram(root, participants, name)
@@ -390,26 +398,26 @@ if __name__ == "__main__":
 
             # Save to file
             f = open(filename,'w')
-            f.write('\n'.join(uml))
+            f.write('\n'.join(uml).encode('ascii',errors='ignore'))
             f.close()
 
     # Generate sequence diagram
     elif options.sequence:
         lifelines, seqdata = parse_sequencediagram(root, participants, options.sequence)
         uml = generate_plantuml_sequence(lifelines, seqdata)
-        print '\n'.join(uml)
+        print '\n'.join(uml).encode('ascii',errors='ignore')
 
     # Generate usecase diagram
     elif options.usecase:
         ucdata, uc_participants, diagram = parse_usecasediagram(root, participants, options.usecase)
         uml = generate_plantuml_usecase(ucdata, uc_participants,  diagram)
-        print '\n'.join(uml)
+        print '\n'.join(uml).encode('ascii',errors='ignore')
 
     # Generate class/object diagram
     elif options.classdiagram:
         data = parse_classdiagram(root, participants, options.classdiagram)
         uml = generate_plantuml_classdiagram(data)
-        print '\n'.join(uml)
+        print '\n'.join(uml).encode('ascii',errors='ignore')
 
     else:
         print "No action given"
