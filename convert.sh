@@ -65,6 +65,9 @@ while read -r file ; do
             echo ""
             exit 1
         fi
+    else
+        # Remove temporary file
+        rm ${file}.xml
     fi
 
 done < <(grep --include *.sbs -rl -e "$PATTERN" $DIR )  # process substitution

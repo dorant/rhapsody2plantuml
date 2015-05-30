@@ -14,11 +14,17 @@ to [PlantUML](http://plantuml.sourceforge.net) syntax
 * xml2plant  - tool to convert above XML to PlantUML syntax
 
 ##### Setup
-Build sbs2xml:
+First build sbs2xml:
 ```
 cd sbs2xml
 mkdir build
 cd build
 cmake ..
 make
+```
+
+##### Usage
+```
+./convert.sh -f ~/my_rhapsody_project
+
 ```
