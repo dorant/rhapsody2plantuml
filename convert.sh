@@ -1,11 +1,14 @@
 #!/bin/bash
+BASEDIR=$(dirname $0)
 
 # Reset in case getopts has been used previously in the shell.
 OPTIND=1
 
+VERBOSE=0
 FORCE=0
 FORCE_FAILURES=0
 FORCE_FILES=()
+NO_OF_FILES=0
 
 # Search for files containing either
 # - IMSC       - Sequence digrams
@@ -13,14 +16,17 @@ FORCE_FILES=()
 # - IDiagram   - Class/Object digrams
 PATTERN='{ IMSC\|{ IUCDiagram\|{ IDiagram'
 
-while getopts "h?f" opt; do
+while getopts "h?vf" opt; do
     case "$opt" in
         h|\?)
             echo "Usage: $0 <path to convert sbs-files>"
             echo ""
             echo " Arguments:"
-            echo " -f continue even there is parser failures"
+            echo " -v  Verbose log loutput"
+            echo " -f  Continue even there is parser failures"
             exit 1
+            ;;
+        v)  VERBOSE=1
             ;;
         f)  FORCE=1
             ;;
@@ -29,14 +35,17 @@ done
 
 shift $((OPTIND-1))
 DIR="$1"
-[ ! -d $DIR ]  && { echo "Path not existing: $DIR"; exit 1; }
+[ ! -d $DIR ]  && { echo ""; echo "The path is not a directory or is not existing:"; echo $DIR; echo ""; exit 1; }
+
+[[ $VERBOSE -ne 0 ]] && verbose_flag="-v"
 
 while read -r file ; do
 
     # Convert each sbs to xml
     echo "Converting: $file"
-    cat $file | sbs2xml/build/sbs2xml > ${file}.xml
-
+    cat $file | $BASEDIR/sbs2xml/build/sbs2xml > ${file}.xml
+    NO_OF_FILES=$((NO_OF_FILES + 1))
+            
     if [ $? -ne 0 ]; then
         if [ $FORCE -ne 0 ]; then
             FORCE_FAILURES=$((FORCE_FAILURES + 1))
@@ -52,8 +61,8 @@ while read -r file ; do
     fi
 
     # Convert each sbs.xml to diagrams
-    echo "Parsing: ${file}.xml"
-    xml2plant/xml2plant.py -g ${file}.xml
+    echo "   Parsing: ${file}.xml"
+    $BASEDIR/xml2plant/xml2plant.py ${verbose_flag} -g ${file}.xml
 
     if [ $? -ne 0 ]; then
         if [ $FORCE -ne 0 ]; then
@@ -75,9 +84,9 @@ done < <(grep --include *.sbs -rl -e "$PATTERN" $DIR )  # process substitution
 # Show results
 echo ""
 if [ $FORCE -ne 0 ] && [ $FORCE_FAILURES -ne 0 ]; then
-    echo "Number of failures: ${FORCE_FAILURES}"
+    echo "Number of failures: ${FORCE_FAILURES} of ${NO_OF_FILES}"
     printf '%s\n' "${FORCE_FILES[@]}"
 else
-    echo "Done"
+    echo "Done. ${NO_OF_FILES} files converted."
 fi
 echo ""

@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python2
 import logging
 
 from parsers.parser import Participant
@@ -33,7 +33,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
         for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIClass"):
             id = cgi.xpath("_id/text()")[0]
 
-            # Parse all classes excpet "TopLevel"
+            # Parse all classes except "TopLevel"
             if id != root:
 
                 if id not in participants:
