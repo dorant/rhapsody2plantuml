@@ -16,7 +16,7 @@ from parsers.parser import parse_actors
 from parsers.usecase import get_usecase_list
 from parsers.usecase import parse_usecasediagram
 
-from parsers.classdiagram import get_class_list
+from parsers.classdiagram import get_classdiagram_list
 from parsers.classdiagram import parse_classdiagram
 
 from parsers.parser import get_sequence_list
@@ -42,6 +42,8 @@ def find_nearest_lifeline(lifelines, position):
         else:
             smallest_part = part
             smallest_dist = dist
+
+    assert smallest_part != None
     return smallest_part
 
 def quote_if_space(string):
@@ -104,27 +106,33 @@ def generate_plantuml_sequence(lifelines, chartdata):
 
 # TODO: span over many lifelines
         elif event.type == EventType.NOTE:
-            participant = find_nearest_lifeline(lifelines, event.position)
             text = event.text
-            if '\n' in text:
-                # Handle multiline notes
-                result.append('note over %s' % (quote_if_space(participant.name)))
-                result.append(text)
-                result.append('end note')
+            if len(lifelines) > 0:
+                participant = find_nearest_lifeline(lifelines, event.position)
+                if '\n' in text:
+                    # Handle multiline notes
+                    result.append('note over %s' % (quote_if_space(participant.name)))
+                    result.append(text)
+                    result.append('end note')
+                else:
+                    result.append('note over %s: %s' % (quote_if_space(participant.name), text))
             else:
-                result.append('note over %s: %s' % (quote_if_space(participant.name), text))
+                result.append('note top: %s' % (text))
 
 # TODO: span over many lifelines
         elif event.type == EventType.REF:
-            participant = find_nearest_lifeline(lifelines, event.position)
             text = event.text
-            if '\n' in text:
-                # Handle multiline reference
-                result.append('ref over %s' % (quote_if_space(participant.name)))
-                result.append(text)
-                result.append('end ref')
+            if len(lifelines) > 0:
+                participant = find_nearest_lifeline(lifelines, event.position)
+                if '\n' in text:
+                    # Handle multiline reference
+                    result.append('ref over %s' % (quote_if_space(participant.name)))
+                    result.append(text)
+                    result.append('end ref')
+                else:
+                    result.append('ref over %s : %s' % (quote_if_space(participant.name), text))
             else:
-                result.append('ref over %s : %s' % (quote_if_space(participant.name), text))
+                result.append('note top: %s' % (text))
 
         elif event.type == EventType.DIVIDER:
             result.append("== %s ==" % event.text)
@@ -313,7 +321,7 @@ def print_diagram_names(xmlnode):
         print "  ", name
 
     print "Object and Class Diagrams:" 
-    for name in get_class_list(xmlnode):
+    for name in get_classdiagram_list(xmlnode):
         print "  ", name
 
 
@@ -384,7 +392,7 @@ if __name__ == "__main__":
             f.close()
 
         # Class diagrams
-        for name in get_class_list(root):
+        for name in get_classdiagram_list(root):
             filename = os.path.join(path, "CL_" + name.replace(" ", "_") + ".plantuml")
             print "   Generating:", filename
 

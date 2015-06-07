@@ -317,7 +317,9 @@ def parse_conditions(node, events_result):
 
             else:
                 msg = ConditionElse()
-                msg.text = operand.xpath("_interactionConstraint/text()")[0]
+                constraint = operand.xpath("_interactionConstraint/text()")
+                if len(constraint) > 0:
+                    msg.text = constraint[0]
                 msg.id = id
                 logging.debug("Added  else: %s", msg)
                 logging.debug("         id: %s", id)

@@ -4,11 +4,13 @@ import logging
 from parsers.parser import Participant
 from parsers.parser import PartType
 
-def get_class_list(xml_node):
+def get_classdiagram_list(xml_node):
     result = []
-    for diagram in xml_node.findall("ISubsystem/Declaratives/IRPYRawContainer/IDiagram"):
-        name = diagram.xpath("_name/text()")[0]
-        result.append(name)
+    str = "ISubsystem/Declaratives/IRPYRawContainer/IDiagram"
+    for diagram in xml_node.findall(str):
+        names = diagram.xpath("_name/text()")
+        if len(names) > 0:
+            result.append(names[0])
     return result
 
 
@@ -20,7 +22,8 @@ def parse_classdiagram(xml_node, global_participants, find_name):
     participants = {}
 
     # Parse a diagram (can exist in a IUseCase as well...
-    for diagram in xml_node.findall("ISubsystem/Declaratives/IRPYRawContainer/IDiagram[_name='" + find_name + "']"):
+    str = "ISubsystem/Declaratives/IRPYRawContainer/IDiagram[_name='" + find_name + "']"
+    for diagram in xml_node.findall(str):
 
         # Chartname
         diagramdata["name"] = find_name
@@ -89,14 +92,12 @@ def parse_classdiagram(xml_node, global_participants, find_name):
         types = {}
         for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIGenericElement"):
             id = cgi.xpath("_id/text()")[0]
+            cgitype = {}
 
             if len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IType']")):
 
                 name_list = cgi.xpath("m_name/CGIText/m_str/text()")
                 if len(name_list) > 0:
-
-                    cgitype = {}
-
                     # Get name
                     cgitype["name"] = name_list[0]
 
@@ -106,7 +107,18 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                     cgitype["parent"] = parent_node[0]
 
                     types[id] = cgitype
-                    logging.debug("Adding type: %s", cgiclass["name"])
+                    logging.debug("Adding type: %s", cgitype["name"])
+                diagramdata["types"] = types
+
+            elif len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IStereotype']")):
+
+                name_list = cgi.xpath("m_name/CGIText/m_str/text()")
+                if len(name_list) > 0:
+                    cgitype["name"] = name_list[0]
+
+                    types[id] = cgitype
+                    logging.debug("Adding stereotype: %s", cgitype["name"])
+
         diagramdata["types"] = types
 
         # Modules/Files
@@ -115,13 +127,10 @@ def parse_classdiagram(xml_node, global_participants, find_name):
             id = cgi.xpath("_id/text()")[0]
 
             if len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IModule']")):
-
                 name_list = cgi.xpath("m_name/CGIText/m_str/text()")
                 if len(name_list) > 0:
-
-                    cgimodule = {}
-                
                     # Get name
+                    cgimodule = {}
                     cgimodule["name"] = name_list[0]
 
                     # Get parent
@@ -130,7 +139,16 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                     cgimodule["parent"] = parent_node[0]
 
                     modules[id] = cgimodule
-                    logging.debug("Adding type: %s", cgiclass["name"])
+                    logging.debug("Adding type: %s", cgimodule["name"])
+            else:
+                # TODO: Handling IPart a bit better
+                name_list = cgi.xpath("m_name/CGIText/m_str/text()")
+                if len(name_list) > 0:
+                    cgimodule = {}
+                    cgimodule["name"] = name_list[0]
+                    modules[id] = cgimodule
+                    logging.debug("Adding type/part: %s", cgimodule["name"])
+
         diagramdata["modules"] = modules
 
         # Actor (which is possible..)
@@ -146,6 +164,47 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                     logging.debug("Adding actor: %s", actors[id])
 
         diagramdata["actors"] = actors
+
+        # Packages
+        packages = {}
+        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIPackage"):
+            pkg_node = cgi.xpath("m_name/CGIText/m_str/text()")
+            if len(pkg_node) > 0:
+                name = pkg_node[0]
+                id_node = cgi.xpath("_id/text()")
+                assert len(id_node) == 1
+                id = id_node[0]
+
+                pkg = {}
+                pkg["name"] = name
+                pkg["includes"] = []
+                for classid in classes:
+                    if classes[classid]["parent"] == id:
+                        pkg["includes"].append(classes[classid]["name"])
+
+                packages[id] = pkg
+                logging.debug("Adding package: %s", name)
+
+        diagramdata["packages"] = packages
+
+        # Components
+        components = {}
+        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIComponent"):
+            pkg_node = cgi.xpath("m_name/CGIText/m_str/text()")
+            if len(pkg_node) > 0:
+                name = pkg_node[0]
+
+                id_node = cgi.xpath("_id/text()")
+                assert len(id_node) == 1
+                id = id_node[0]
+
+                comp = {}
+                comp["name"] = name
+
+                components[id] = comp
+                logging.debug("Adding component: %s", name)
+
+        diagramdata["components"] = components
 
         # Associations
         associations = []
@@ -181,38 +240,16 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                 targetmulti = targetmulti_node[0]
 
             assoc = {}
-            assoc["source"] = classes[source]["name"]
+            assoc["source"] = get_name_for_object(source, classes, components, packages, actors, types, modules)
             assoc["sourcerole"] = sourcerole
             assoc["sourcemultiplicity"] = sourcemulti
-            assoc["target"] = classes[target]["name"]
+            assoc["target"] = get_name_for_object(target, classes, components, packages, actors, types, modules)
             assoc["targetrole"] = targetrole
             assoc["targetmultiplicity"] = targetmulti
             associations.append(assoc)
             logging.debug("Adding association: %s - %s", assoc["source"], assoc["target"])
 
         diagramdata["associations"] = associations
-
-        # Packages
-        packages = {}
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIPackage"):
-            pkg_node = cgi.xpath("m_name/CGIText/m_str/text()")
-            if len(pkg_node) > 0:
-                name = pkg_node[0]
-                id_node = cgi.xpath("_id/text()")
-                assert len(id_node) == 1
-                id = id_node[0]
-
-                pkg = {}
-                pkg["name"] = name
-                pkg["includes"] = []
-                for classid in classes:
-                    if classes[classid]["parent"] == id:
-                        pkg["includes"].append(classes[classid]["name"])
-
-                packages[id] = pkg
-                logging.debug("Adding package: %s", name)
-
-        diagramdata["packages"] = packages
 
         # Inheritance
         inheritance = []
@@ -227,30 +264,8 @@ def parse_classdiagram(xml_node, global_participants, find_name):
             logging.debug("Got source=%s target=%s", source, target)
 
             inherit = {}
-            if source in classes:
-                inherit["source"] = classes[source]["name"]
-            if source in packages:
-                inherit["source"] = packages[source]["name"]
-            if source in actors:
-                inherit["source"] = actors[source]
-            if source in types:
-                inherit["source"] = types[source]["name"]
-            if source in modules:
-                inherit["source"] = modules[source]["name"]
-            assert inherit["source"]
-
-            if target in classes:
-                inherit["target"] = classes[target]["name"]
-            if target in packages:
-                inherit["target"] = packages[target]["name"]
-            if target in actors:
-                inherit["target"] = actors[target]
-            if target in types:
-                inherit["target"] = types[target]["name"]
-            if target in modules:
-                inherit["target"] = modules[target]["name"]
-            assert inherit["target"]
-
+            inherit["source"] = get_name_for_object(source, classes, components, packages, actors, types, modules)
+            inherit["target"] = get_name_for_object(target, classes, components, packages, actors, types, modules)
             inheritance.append(inherit)
             logging.debug("Adding inheritance: %s - %s", inherit["source"], inherit["target"])
 
@@ -259,3 +274,26 @@ def parse_classdiagram(xml_node, global_participants, find_name):
     # Done
     assert "name" in diagramdata
     return diagramdata
+
+
+
+
+def get_name_for_object(id, classes, components, packages, actors, types, modules):
+    name = ""
+    if id in classes:
+        name = classes[id]["name"]
+    elif id in components:
+        name = components[id]["name"]
+    elif id in packages:
+        name = packages[id]["name"]
+    elif id in actors:
+        name = actors[id]
+    elif id in types:
+        name = types[id]["name"]
+    elif id in modules:
+        name = modules[id]["name"]
+    else:
+        logging.error("Cant find id=%s", id)
+        assert None
+
+    return name

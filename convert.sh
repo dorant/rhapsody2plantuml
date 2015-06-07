@@ -45,7 +45,7 @@ while read -r file ; do
     echo "Converting: $file"
     cat $file | $BASEDIR/sbs2xml/build/sbs2xml > ${file}.xml
     NO_OF_FILES=$((NO_OF_FILES + 1))
-            
+
     if [ $? -ne 0 ]; then
         if [ $FORCE -ne 0 ]; then
             FORCE_FAILURES=$((FORCE_FAILURES + 1))
