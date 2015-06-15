@@ -157,9 +157,9 @@ class Participant:
             assert None
 
     def __str__(self):
-        return "Participant(%s %s %s %s %s)" % (self.type_to_string(), self.name, 
-                                                self.dependencies, self.associations,
-                                                self.position)
+        return "Participant(type=%s, name=%s, dep=%s, assoc=%s, pos=%s)" % (self.type_to_string(), self.name, 
+                                                                            self.dependencies, self.associations,
+                                                                            self.position)
 
 
 EventType = enum('MESSAGE', 'COND_START', 'COND_ELSE', 'COND_END', 'NOTE', 'DIVIDER', 'REF')
@@ -174,7 +174,7 @@ class Event(object):
         self.position = Position()
 
     def __str__(self):
-        return "Event(%s %s %s)" % (self.type, self.id, self.position)
+        return "Event(%s, %s, %s)" % (self.type, self.id, self.position)
 
 
 MessageType = enum('PRIMITIVE', 'REPLY')

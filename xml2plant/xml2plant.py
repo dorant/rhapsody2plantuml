@@ -10,7 +10,7 @@ from argparse import ArgumentDefaultsHelpFormatter
 from parsers.parser import parse_classes
 from parsers.parser import parse_actors
 
-from parsers.usecase import get_usecase_list
+from parsers.usecase import get_usecasediagram_list
 from parsers.usecase import parse_usecasediagram
 
 from parsers.classdiagram import get_classdiagram_list
@@ -28,7 +28,7 @@ from generators.classdiagram import generate_plantuml_classdiagram
 
 def print_diagram_names(xmlnode):
     print "Usecase diagrams:" 
-    for name in get_usecase_list(xmlnode):
+    for name in get_usecasediagram_list(xmlnode):
         print "  ", name
 
     print "Sequence diagrams:" 
@@ -71,13 +71,13 @@ if __name__ == "__main__":
         path = os.path.join( os.path.dirname(options.file), "docs")
 
         # Usecases
-        for name in get_usecase_list(root):
+        for name in get_usecasediagram_list(root):
             filename = os.path.join(path, "UC_" + name.replace(" ", "_") + ".plantuml")
             print "   Generating:", filename
 
             # Parse
-            ucdata, uc_participants, diagram = parse_usecasediagram(root, participants, name)
-            uml = generate_plantuml_usecase(ucdata, uc_participants, diagram)
+            ucdata = parse_usecasediagram(root, participants, name)
+            uml = generate_plantuml_usecase(ucdata)
 
             # Create folders needed
             if not os.path.exists(os.path.dirname(filename)):
@@ -132,8 +132,8 @@ if __name__ == "__main__":
 
     # Generate usecase diagram
     elif options.usecase:
-        ucdata, uc_participants, diagram = parse_usecasediagram(root, participants, options.usecase)
-        uml = generate_plantuml_usecase(ucdata, uc_participants,  diagram)
+        ucdata = parse_usecasediagram(root, participants, options.usecase)
+        uml = generate_plantuml_usecase(ucdata)
         print '\n'.join(uml).encode('ascii',errors='ignore')
 
     # Generate class/object diagram

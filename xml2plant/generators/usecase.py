@@ -2,99 +2,168 @@
 import logging
 from common import quote_if_space
 
-from parsers.parser import PartType
-from parsers.parser import EventType
-from parsers.parser import MessageType
+def print_arrows(diagram, uc, indent, result):
+    uc_appended = False
+
+    if len(uc.linked_diagram_name) > 0:
+        link = "  [[file://SEQ_%s.plantuml]]" % (uc.linked_diagram_name.replace(" ", "_"))
+    else:
+        link = ""
+
+    for arrow in diagram.associations:
+        if arrow.source == uc.id:
+            if arrow.target in diagram.participants:
+                uc_appended = True
+                result.append('%s(%s%s) --> %s' % (indent,
+                                                   uc.name,
+                                                   link,
+                                                   diagram.participants[arrow.target].name.replace(" ","_") ))
+            
+        elif arrow.target == uc.id:
+            if arrow.source in diagram.participants:
+                uc_appended = True
+                result.append('%s%s --> (%s%s)' % (indent,
+                                                   diagram.participants[arrow.source].name.replace(" ","_"),
+                                                   uc.name,
+                                                   link))
+
+    for arrow in diagram.dependencies:
+        if arrow.source == uc.id:
+            if arrow.target in diagram.participants:
+                uc_appended = True
+                result.append('%s(%s%s) ..> %s' % (indent,
+                                                   uc.name,
+                                                   link,
+                                                   diagram.participants[arrow.target].name.replace(" ","_") ))
+
+        elif arrow.target == uc.id:
+            if arrow.source in diagram.participants:
+                uc_appended = True
+                result.append('%s%s ..> (%s%s)' % (indent,
+                                                   diagram.participants[arrow.source].name.replace(" ","_"),
+                                                   uc.name,
+                                                   link))
+
+    # Make sure we show it even without arrows
+    if not uc_appended:
+        result.append('%s(%s%s)' % (indent,
+                                    uc.name, 
+                                    link))
+
+    # # Add dependencies
+    # for dep_id in uc.dependencies:
+    #     for other_uc in diagram.ucs:
+    #         if dep_id == other_uc.id:
+    #             uc_appended = True
+    #             result.append('(%s  [[link]]) ..> (%s  [[link]])' % (uc.name, 
+    #                                                                  diagram.ucs[dep_id].name ))
+
+    #     for box_id in diagram.boxes:
+    #         for other_uc in diagram.boxes[box_id].ucs:
+    #             if dep_id == other_uc.id:
+    #                 uc_appended = True
+    #                 result.append('(%s  [[link]]) ..> (%s  [[link]])' % (uc.name, 
+    #                                                                      diagram.boxes[box_id].ucs[dep_id].name ))
+          
+    # ====== BOXED =========
+    # # Add associations to participants
+    # for assoc_id in uc.associations:
+    #     if assoc_id in diagram.participants:
+    #         uc_appended = True
+    #         result.append('  (%s  [[link]]) --> %s' % (uc.name, diagram.participants[assoc].name.replace(" ","_") ))
+
+    # # Add associations to the usecase
+    # for part_id in diagram.participants:
+    #     for assoc_id in diagram.participants[id].associations:
+    #         if assoc_id == uc.id:
+    #             if assoc_id not in uc.associations:
+    #                 uc_appended = True
+    #                 result.append('  %s --> (%s  [[link]])' % (participants[id].name.replace(" ","_"), uc.name ))
+
+    # # Add dependencies
+    # for dep_id in uc.dependencies:
+    #     for other_uc in diagram.ucs:
+    #         if dep_id == other_uc.id:
+    #             uc_appended = True
+    #             result.append('(%s  [[link]]) ..> (%s  [[link]])' % (uc.name, 
+    #                                                                  diagram.ucs[dep_id].name ))
+
+    #     for box_id in diagram.boxes:
+    #         for other_uc in diagram.boxes[box_id].ucs:
+    #             if dep_id == other_uc.id:
+    #                 uc_appended = True
+    #                 result.append('(%s  [[link]]) ..> (%s  [[link]])' % (uc.name, 
+    #                                                                      diagram.boxes[box_id].ucs[dep_id].name ))
+
+          
 
 
-def generate_plantuml_usecase(ucdata, participants, diagram):
+def generate_plantuml_usecase(diagram):
+
     result = []
-    for name in diagram:
-        result.append("@startuml")
-        result.append("title %s" % name)
-        result.append("left to right direction")
-        result.append("")
+    result.append("@startuml")
+    result.append("title %s" % diagram.name)
+    result.append("left to right direction")
+    result.append("")
 
-        # Print actors
-        for id in participants:
-            actor = participants[id].name.replace(" ","_")
-            result.append('actor %s' % actor)
-            logging.debug("Using actor: %s", participants[id])
-        result.append("")
+    # Print actors
+    for id in diagram.participants:
+        actor = diagram.participants[id].name.replace(" ","_")
+        result.append('actor %s' % actor)
+        logging.debug("Using actor: %s", diagram.participants[id])
+    result.append("")
 
-        # Adding global notes
-        for note in diagram[name]['notes']:
-            if len(note["anchor"]) == 0:
-                result.append('note left')
-                result.append('%s' % note["text"])
-                result.append('end note')
-                result.append("")
-
-        # Adding global usecases
-        for uc in diagram[name]['free_ucs']:
-            # Add associations to participants
-            for assoc in ucdata[uc]['associations']:
-                if assoc in participants:
-                    result.append('(%s  [[link]]) --> %s' % (ucdata[uc]['name'], participants[assoc].name.replace(" ","_") ))
-
-            # Add associations to the usecase
-            for id in participants:
-                for uc_guid in participants[id].associations:
-                    if uc_guid == uc:
-                        if id not in ucdata[uc]['associations']:
-                            result.append('%s --> (%s  [[link]])' % (participants[id].name.replace(" ","_"), ucdata[uc]['name'] ))
-
-            # Add dependencies
-            for dep in ucdata[uc]['dependencies']:
-                if dep in ucdata:
-                    result.append('(%s  [[link]]) ..> (%s  [[link]])' % (ucdata[uc]['name'], ucdata[dep]['name'] ))
-
-        # Space if needed
-        if len(diagram[name]['free_ucs']) > 0:
+    # Adding global notes (without anchors)
+    for note in diagram.notes:
+        if len(note.anchors) == 0:
+            result.append('note left')
+            result.append('%s' % note.text)
+            result.append('end note')
             result.append("")
 
-        # Adding boxes with usecases
-        for rect in diagram[name]['rect_ucs']:
-            rect_name = diagram[name]['rect_ucs'][rect]['name']
-            rect_ucs = diagram[name]['rect_ucs'][rect]['ucs']
-            logging.debug("%s %s", rect_name, rect_ucs)
+    # Adding global usecases
+    for uc in diagram.ucs:
+        print_arrows(diagram, uc, "", result)
 
-            result.append('rectangle %s {' % quote_if_space(rect_name))
-            for uc in rect_ucs:
-                # Add associations to participants
-                for assoc in ucdata[uc]['associations']:
-                    if assoc in participants:
-                        result.append('  (%s  [[link]]) --> %s' % (ucdata[uc]['name'], participants[assoc].name.replace(" ","_") ))
-
-                # Add associations to the usecase
-                for id in participants:
-                    for uc_guid in participants[id].associations:
-                        if uc_guid == uc:
-                            if id not in ucdata[uc]['associations']:
-                                result.append('  %s --> (%s  [[link]])' % (participants[id].name.replace(" ","_"), ucdata[uc]['name'] ))
-
-                # Add dependencies
-                for dep in ucdata[uc]['dependencies']:
-                    if dep in ucdata:
-                        result.append('  (%s  [[link]]) ..> (%s  [[link]])' % (ucdata[uc]['name'], ucdata[dep]['name'] ))
-
-            result.append("}")
-
-        # Adding specific notes
-        for note in diagram[name]['notes']:
-            if len(note["anchor"]) > 0:
-                anchor_name = ""
-                if note["anchor"][0] in participants:
-                    anchor_name = participants[note["anchor"][0]].name.replace(" ","_")
-
-                if note["anchor"][0] in ucdata:
-                    anchor_name = ucdata[note["anchor"][0]]['name']
-
-                result.append('note left of %s' % anchor_name)
-                result.append('%s' % note["text"])
-                result.append('end note')
-
-        # Done
-        result.append("@enduml")
+    # Space if needed
+    if len(diagram.ucs) > 0:
         result.append("")
+
+    # Adding boxes with usecases
+    for box_id in diagram.boxes:
+        rect_name = diagram.boxes[box_id].name
+        result.append('rectangle %s {' % quote_if_space(rect_name))
+        logging.debug("%s", rect_name)
+
+        for uc in diagram.boxes[box_id].ucs:
+            print_arrows(diagram, uc, "    ", result)
+
+
+        result.append("}")
+        result.append("")
+
+    # Adding specific notes
+    for note in diagram.notes:
+        if len(note.anchors) > 0:
+            anchor_name = ""
+            if note.anchors[0] in diagram.participants:
+                anchor_name = diagram.participants[note.anchors[0]].name.replace(" ","_")
+
+            for uc in diagram.ucs:
+                if note.anchors[0] == uc.id:
+                    anchor_name = uc.name
+
+            for box_id in diagram.boxes:
+                for uc in diagram.boxes[box_id].ucs:
+                    if note.anchors[0] == uc.id:
+                        anchor_name = uc.name
+
+            result.append('note left of %s' % anchor_name)
+            result.append('%s' % note.text)
+            result.append('end note')
+            result.append("")
+
+    # Done
+    result.append("@enduml")
+    result.append("")
     return result

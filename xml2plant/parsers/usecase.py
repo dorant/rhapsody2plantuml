@@ -4,7 +4,14 @@ import logging
 from parsers.parser import Participant
 from parsers.parser import PartType
 
-def get_usecase_list(xml_node):
+from datatypes.usecase import UsecaseDiagramData
+from datatypes.usecase import UsecaseData
+from datatypes.usecase import UsecaseBox
+from datatypes.usecase import UsecaseNote
+from datatypes.usecase import UsecaseArrow
+
+# List of all existing usecase diagrams
+def get_usecasediagram_list(xml_node):
     result = []
     for usecase in xml_node.findall("ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram"):
         name = usecase.xpath("_name/text()")[0]
@@ -12,145 +19,179 @@ def get_usecase_list(xml_node):
     return result
 
 
-def parse_usecases(xml_node):
+def parse_all_usecases(xml_node):
 
     data_usecases = {}
     for usecase in xml_node.findall("ISubsystem/UseCases/IRPYRawContainer/IUseCase"):
-        name = usecase.xpath("_name/text()")[0]
         id = usecase.xpath("_id/text()")[0]
+        name = usecase.xpath("_name/text()")[0]
+        uc = UsecaseData(id, name)
 
-        statechart = ""
         statechart_list = usecase.xpath("Diagrams/IRPYRawContainer/IHandle/_id/text()")
         if len(statechart_list) > 0:
-            statechart = statechart_list[0]
+            uc.linked_diagram_id = statechart_list[0]
 
-        depends = []
-        for depend_node in usecase.xpath("Dependencies/IRPYRawContainer/IDependency"):
-            if depend_node.xpath("_dependsOn/INObjectHandle/_m2Class/text()")[0] == "IUseCase":
-                depend_id = depend_node.xpath("_dependsOn/INObjectHandle/_id/text()")[0]
-                # Remove duplets
-                if depend_id not in depends:
-                    depends.append(depend_id)
+            # Get name of sequence diagram
+            seq_list = xml_node.xpath(".//IMSC[_id='" + statechart_list[0] + "']/_name/text()")
+            assert len(seq_list) < 2
+            if len(seq_list) > 0:
+                uc.linked_diagram_name = seq_list[0]
 
-        associations = []
-        for assoc_node in usecase.xpath("Associations/IRPYRawContainer/IAssociationEnd"):
-            if assoc_node.xpath("_otherClass/IClassifierHandle/_m2Class/text()")[0] == "IActor":
-                assoc_id = assoc_node.xpath("_otherClass/IClassifierHandle/_id/text()")[0]
-                # Remove duplets
-                if assoc_id not in associations:
-                    associations.append(assoc_id)
-
-        data_usecase = {}
-        data_usecase['name'] = name
-        data_usecase['dependencies'] = depends
-        data_usecase['associations'] = associations
-        data_usecase['statechart'] = statechart
-        data_usecases[id] = data_usecase
-        logging.debug("Parsed usecase: %s", data_usecase)
+        data_usecases[id] = uc
+        logging.debug("Parsed usecase: %s", uc)
     return data_usecases
 
 
+# Parse a specific diagram
 def parse_usecasediagram(xml_node, global_participants, find_name):
 
-    # Get all usecases
-    data_usecases = parse_usecases(xml_node)
+    # Find the usecase diagram
+    diagrams = xml_node.xpath("ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram[_name='" + find_name + "']")
+    if len(diagrams) == 0:
+        return None
 
-    participants = {}
-    data_diagrams = {}
+    assert len(diagrams) == 1
+    diagram = diagrams[0]
 
-    # Get the usecase diagram
-    for diagram in xml_node.xpath("ISubsystem/Declaratives/IRPYRawContainer/IUCDiagram[_name='" + find_name + "']"):
-        name = diagram.xpath("_name/text()")[0]
-        logging.debug("Parsing uc-diagram: %s", name)
+    name = diagram.xpath("_name/text()")[0]
+    diagramdata = UsecaseDiagramData(name)
+    logging.debug("Parsing uc-diagram: %s", name)
 
-        # Parse boxes in diagram
-        data_diagram_rects = {}
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIBox"):
-            id = cgi.xpath("_id/text()")[0]
+    # Get all existing usecases
+    all_usecases = parse_all_usecases(xml_node)
 
-            box_name = ""
-            box_name_list = cgi.xpath("m_name/CGIText/m_str/text()")
-            if len(box_name_list) > 0:
-                box_name = box_name_list[0]
+    # Parse boxes in diagram
+    for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIBox"):
+        id = cgi.xpath("_id/text()")[0]
 
-            data_diagram_rect = {}
-            data_diagram_rect['name'] = box_name
-            data_diagram_rect['ucs']  = []
-            data_diagram_rects[id] = data_diagram_rect
+        box_name = ""
+        box_name_list = cgi.xpath("m_name/CGIText/m_str/text()")
+        if len(box_name_list) > 0:
+            box_name = box_name_list[0]
 
-        # Parse usecases in diagram
-        data_diagram_ucs = []
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass"):
-            id = cgi.xpath("m_pModelObject/IHandle/_id/text()")[0]
+        box = UsecaseBox(box_name)
+        diagramdata.boxes[id] = box
+        logging.debug("Parsed box: %s", box)
 
-            # Handle usecase
-            if len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IUseCase']")):
-                parent = cgi.xpath("m_pParent/text()")[0]
-                assert id in data_usecases
+    # Parse usecases in diagram
+    for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass"):
+        model_id = cgi.xpath("m_pModelObject/IHandle/_id/text()")[0]
 
-                if parent in data_diagram_rects:
-                    data_diagram_rects[parent]['ucs'].append(id)
-                else:
-                    data_diagram_ucs.append(id)
+        # Handle usecase
+        if len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IUseCase']")):
+            parent_id = cgi.xpath("m_pParent/text()")[0]
+            assert model_id in all_usecases
 
-            # Handle participants
-            elif len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IActor']")):
-                if id in global_participants:
-                    participants[id] = global_participants[id]
-                else:
-                    actor_name = cgi.xpath("m_pModelObject/IHandle/_name/text()")[0]
-                    participants[id] = Participant(PartType.ACTOR, actor_name)
+            if parent_id in diagramdata.boxes:
+                diagramdata.boxes[parent_id].ucs.append(all_usecases[model_id])
+                logging.debug("Adding to box: %s", all_usecases[model_id])
             else:
-                assert None
+                diagramdata.ucs.append(all_usecases[model_id])
+                logging.debug("Adding to global: %s", all_usecases[model_id])
 
-        # Parse notes in diagram
-        data_diagram_notes = []
-        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAnnotation"):
-            logging.debug("Found note")
-            id = cgi.xpath("_id/text()")[0]
+        # Handle participants
+        elif len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IActor']")):
+            if model_id in global_participants:
+                diagramdata.participants[model_id] = global_participants[model_id]
+            else:
+                # Not existing, add a own created
+                actor_name = cgi.xpath("m_pModelObject/IHandle/_name/text()")[0]
+                diagramdata.participants[model_id] = Participant(PartType.ACTOR, actor_name)
+        else:
+            assert None
 
-            data_note = {}
-            data_note["anchor"] = []  # List of GUIDs (lines)
-            data_note["text"] = ""    # Text of note
+    # Parse notes in diagram
+    for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAnnotation"):
 
-            # Get text
-            text_list = cgi.xpath("m_name/CGIText/m_str/text()")
-            if len(text_list) > 0:
-                data_note["text"] = text_list[0]
+        # Get text
+        text = ""
+        text_list = cgi.xpath("m_name/CGIText/m_str/text()")
+        if len(text_list) > 0:
+            text = text_list[0]
 
-            # Get anchors to note
-            for cgi_anchor in diagram.xpath("_graphicChart/CGIClassChart/CGIAnchor[m_pSource='" + id + "']"):
-                logging.debug("Found anchor to note")
+        note = UsecaseNote(text)
 
-                target_list = cgi_anchor.xpath("m_pTarget/text()")
-                assert len(target_list) == 1
+        # Get anchors to note
+        id = cgi.xpath("_id/text()")[0]
+        for cgi_anchor in diagram.xpath("_graphicChart/CGIClassChart/CGIAnchor[m_pSource='" + id + "']"):
+            #logging.debug("Found anchor to note")
 
-                # Get where its pointing
-                for cgi_anchor_object in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + target_list[0] + "']/m_pModelObject/IHandle/_id/text()"):
-                    data_note["anchor"].append(cgi_anchor_object)
+            target_list = cgi_anchor.xpath("m_pTarget/text()")
+            assert len(target_list) == 1
 
-            for cgi_anchor in diagram.xpath("_graphicChart/CGIClassChart/CGIAnchor[m_pTarget='" + id + "']"):
-                logging.debug("Found anchor to note")
+            # Get where its pointing
+            for cgi_anchor_object in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + target_list[0] + "']/m_pModelObject/IHandle/_id/text()"):
+                note.anchors.append(cgi_anchor_object)
 
-                source_list = cgi.xpath("m_pSource/text()")
-                assert len(source_list) == 1
+        for cgi_anchor in diagram.xpath("_graphicChart/CGIClassChart/CGIAnchor[m_pTarget='" + id + "']"):
+            #logging.debug("Found anchor to note")
 
-                # Get where its pointing
-                for cgi_anchor_object in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_list[0] + "']/m_pModelObject/IHandle/_id/text()"):
-                    data_note["anchor"].append(cgi_anchor_object)
+            source_list = cgi.xpath("m_pSource/text()")
+            assert len(source_list) == 1
 
-            data_diagram_notes.append(data_note)
+            # Get where its pointing
+            for cgi_anchor_object in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_list[0] + "']/m_pModelObject/IHandle/_id/text()"):
+                note.anchors.append(cgi_anchor_object)
+
+        logging.debug("Parsed note: %s", note)
+        diagramdata.notes.append(note)
 
 
-        logging.debug("Parsed free usecases: %s", data_diagram_ucs)
-        logging.debug("Parsed uc-diagram boxes: %s", data_diagram_rects)
-        logging.debug("Parsed uc-diagram notes: %s", data_diagram_notes)
-                    
-        # Add results
-        data_diagram = {}
-        data_diagram["rect_ucs"] = data_diagram_rects
-        data_diagram["free_ucs"] = data_diagram_ucs
-        data_diagram["notes"] = data_diagram_notes
-        data_diagrams[name] = data_diagram
+    # Parse associations arrows
+    for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAssociationEnd"):
+        logging.debug("Parsed association")
 
-    return data_usecases, participants, data_diagrams
+        #logging.debug("Parsed association id=%s", cgi.xpath("_id/text()"))
+        #assert len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IAssociationEnd']")) == 1
+
+        # Get source
+        source_node = cgi.xpath("m_pSource/text()")
+        assert len(source_node) == 1
+
+        # Get where its pointing
+        source_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_node[0] + "']/m_pModelObject/IHandle/_id/text()")
+        assert len(source_list) == 1
+        source = source_list[0]
+    
+        # Get target
+        target_node = cgi.xpath("m_pTarget/text()")
+        assert len(target_node) == 1
+
+        # Get where its pointing
+        target_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + target_node[0] + "']/m_pModelObject/IHandle/_id/text()")
+        assert len(target_list) == 1
+        target = target_list[0]
+
+        assoc = UsecaseArrow(source, target)
+        diagramdata.associations.append(assoc)
+
+    # Parse inheritance arrows
+    for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIInheritance"):
+        logging.debug("Parsed inheritance")
+
+        #assert len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IDependency']")) == 1
+
+        # Get source
+        source_node = cgi.xpath("m_pSource/text()")
+        assert len(source_node) == 1
+
+        # Get where its pointing
+        source_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_node[0] + "']/m_pModelObject/IHandle/_id/text()")
+        assert len(source_list) == 1
+        source = source_list[0]
+    
+        # Get target
+        target_node = cgi.xpath("m_pTarget/text()")
+        assert len(target_node) == 1
+
+        # Get where its pointing
+        target_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + target_node[0] + "']/m_pModelObject/IHandle/_id/text()")
+        assert len(target_list) == 1
+        target = target_list[0]
+
+        dep = UsecaseArrow(source, target)
+        diagramdata.dependencies.append(dep)
+
+    # Done
+    return diagramdata
+    
