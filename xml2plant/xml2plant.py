@@ -49,6 +49,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", dest="sequence", help="Name of sequence diagram to generate to PlantUML")
     parser.add_argument("-u", dest="usecase", help="Name of usecase diagram to generate to PlantUML")
     parser.add_argument("-c", dest="classdiagram", help="Name of class or object diagram to generate to PlantUML")
+    parser.add_argument("-r", dest="rename", help="Rename destination path to a folder without the postfix '_rpy'", action="store_true")
     options = parser.parse_args()
 
     if options.verbose:
@@ -70,6 +71,13 @@ if __name__ == "__main__":
     if options.generate:
         path = os.path.join( os.path.dirname(options.file), "docs")
 
+        if options.rename:
+            path = path.replace('_rpy', '')
+
+        # Create folder if needed
+        if not os.path.exists(path):
+            os.makedirs(path)
+
         # Usecases
         for name in get_usecasediagram_list(root):
             filename = os.path.join(path, "UC_" + name.replace(" ", "_") + ".plantuml")
@@ -78,10 +86,6 @@ if __name__ == "__main__":
             # Parse
             ucdata = parse_usecasediagram(root, participants, name)
             uml = generate_plantuml_usecase(ucdata)
-
-            # Create folders needed
-            if not os.path.exists(os.path.dirname(filename)):
-                os.makedirs(os.path.dirname(filename))
 
             # Save to file
             f = open(filename,'w')
@@ -97,10 +101,6 @@ if __name__ == "__main__":
             lifelines, seqdata = parse_sequencediagram(root, participants, name)
             uml = generate_plantuml_sequence(lifelines, seqdata)
 
-            # Create folders needed
-            if not os.path.exists(os.path.dirname(filename)):
-                os.makedirs(os.path.dirname(filename))
-
             # Save to file
             f = open(filename,'w')
             f.write('\n'.join(uml).encode('ascii',errors='ignore'))
@@ -114,10 +114,6 @@ if __name__ == "__main__":
             # Parse
             data = parse_classdiagram(root, participants, name)
             uml = generate_plantuml_classdiagram(data)
-
-            # Create folders needed
-            if not os.path.exists(os.path.dirname(filename)):
-                os.makedirs(os.path.dirname(filename))
 
             # Save to file
             f = open(filename,'w')

@@ -6,6 +6,7 @@ OPTIND=1
 
 VERBOSE=0
 FORCE=0
+RENAME=0
 FORCE_FAILURES=0
 FORCE_FILES=()
 NO_OF_FILES=0
@@ -16,7 +17,7 @@ NO_OF_FILES=0
 # - IDiagram   - Class/Object digrams
 PATTERN='{ IMSC\|{ IUCDiagram\|{ IDiagram'
 
-while getopts "h?vf" opt; do
+while getopts "h?vfr" opt; do
     case "$opt" in
         h|\?)
             echo "Usage: $0 <path to convert sbs-files>"
@@ -24,11 +25,14 @@ while getopts "h?vf" opt; do
             echo " Arguments:"
             echo " -v  Verbose log loutput"
             echo " -f  Continue even there is parser failures"
+            echo " -r  Rename destination paths to a folder without the postfix '_rpy'"
             exit 1
             ;;
         v)  VERBOSE=1
             ;;
         f)  FORCE=1
+            ;;
+        r)  RENAME=1
             ;;
     esac
 done
@@ -38,6 +42,7 @@ DIR="$1"
 [ ! -d $DIR ]  && { echo ""; echo "The path is not a directory or is not existing:"; echo $DIR; echo ""; exit 1; }
 
 [[ $VERBOSE -ne 0 ]] && verbose_flag="-v"
+[[ $RENAME -ne 0 ]] && rename_flag="-r"
 
 while read -r file ; do
 
@@ -62,7 +67,7 @@ while read -r file ; do
 
     # Convert each sbs.xml to diagrams
     echo "   Parsing: ${file}.xml"
-    $BASEDIR/xml2plant/xml2plant.py ${verbose_flag} -g ${file}.xml
+    $BASEDIR/xml2plant/xml2plant.py ${verbose_flag} ${rename_flag} -g ${file}.xml
 
     if [ $? -ne 0 ]; then
         if [ $FORCE -ne 0 ]; then
