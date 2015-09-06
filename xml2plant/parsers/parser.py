@@ -1,5 +1,6 @@
 #!/bin/env python2
 import logging
+import re
 
 def enum(*args):
     enums = dict(zip(args, range(len(args))))
@@ -343,6 +344,38 @@ def parse_conditions(node, events_result):
 
 
 
+# Parse all existing IComments (can be within subsystems)
+def parse_comments(xml_node, comments):
+    """ Get all comments from an xml-node/root
+    """
+    logging.debug("Parsing global comments:")
+    for icomment in xml_node.findall(".//ISubsystem/Annotations/IRPYRawContainer/IComment"):
+        id = icomment.xpath("_id/text()")[0]
+        
+        # myState dont seems to point of text/RTF, try text first
+        text_node = icomment.xpath("_description/IDescription/_text/text()")
+        if len(text_node) == 1:
+            text = text_node[0]
+            comments[id] = text
+            logging.debug("Added: %s", text)
+
+        else:
+            text_node = icomment.xpath("_description/IDescription/_textRTF/text()")
+            if len(text_node) == 1:
+                text = text_node[0]
+
+                # Handle RTF, remove brackets and '\text text;'
+                text = re.sub('[{}]', '', text)
+                text = re.sub('\\\\\\S+ \\S+;', '', text)
+                # remove like '\xxx\xxx '
+                text = re.sub('\\\\[^\\\\ ]+', '', text)
+                # Remove endlines
+                text = text.strip()
+
+                comments[id] = text
+                logging.debug("Added: %s", text)
+            
+
 
 def get_scale_factor(type, cgi_node, guid):
     root_guid = cgi_node.xpath("m_pRoot/text()")[0]
@@ -457,6 +490,9 @@ def parse_sequencediagram(xml_node, participants, find_name):
     """
     lifelines = {}
     chartdata = {}
+
+    comments = {}
+    parse_comments(xml_node, comments)
 
     # Parse a diagram (can exist in a IUseCase as well...
     for chart in xml_node.xpath(".//IMSC[_name='" + find_name + "']"):
@@ -697,10 +733,28 @@ def parse_sequencediagram(xml_node, participants, find_name):
             assert len(guids) == 1
             id = guids[0]
 
-            # Parse and add the text of the note
-            text_node = note.xpath("m_name/CGIText/m_str/text()")
-            if len(text_node) > 0:
-                msg.text = text_node[0]
+            types = note.xpath("m_type/text()")
+            assert len(types) == 1
+            type = int(types[0])
+
+            if type == 90:
+                # Parse and add the text of the note
+                text_node = note.xpath("m_name/CGIText/m_str/text()")
+                if len(text_node) > 0:
+                    msg.text = text_node[0]
+
+            elif type == 173:
+                # Points to a IComment
+                objs = note.xpath("m_pModelObject/IHandle/_id/text()")
+                assert len(objs) == 1
+
+                # TODO: handle comments that is pointed out to other sbs via _subsystem
+                if objs[0] in comments:
+                    msg.text = comments[objs[0]]
+
+            else:
+                print "Non handled type:"+type
+                assert 0
 
             # Get note position
             msg.position = get_merged_position(cgi, id)
