@@ -51,6 +51,10 @@ def generate_plantuml_sequence(lifelines, chartdata):
         logging.debug("Position: %s", part.position)
     result.append("")
 
+    # TODO: handle this nicer..
+    indent = 0
+    indent_step = 2
+
     # Print all events(messages/conditions and more)
     for event in sorted(chartdata["events"], key=lambda x: x.position.top_left_y):
         logging.debug("Print events: %s", event)
@@ -61,19 +65,22 @@ def generate_plantuml_sequence(lifelines, chartdata):
             if event.type == MessageType.REPLY:
                 arrow = "-->"
                 
-            result.append('%s %s %s : %s(%s)' % (quote_if_space(lifelines[event.sender].name),
-                                                 arrow,
-                                                 quote_if_space(lifelines[event.receiver].name),
-                                                 event.name, event.args))
+            result.append('%s%s %s %s : %s(%s)' % (' '*indent,
+                                                   quote_if_space(lifelines[event.sender].name),
+                                                   arrow,
+                                                   quote_if_space(lifelines[event.receiver].name),
+                                                   event.name, event.args))
 
         elif event.type == EventType.COND_START:
-            result.append("%s %s" % (event.cond, event.text))
+            result.append('%s%s %s' % (' '*indent, event.cond, event.text))
+            indent += indent_step
 
         elif event.type == EventType.COND_ELSE:
-            result.append("%s %s" % (event.cond, event.text))
+            result.append('%s%s %s' % (' '*(indent-indent_step), event.cond, event.text))
 
         elif event.type == EventType.COND_END:
-            result.append("end")
+            indent -= indent_step
+            result.append('%s%s' % (' '*indent, 'end'))
 
 # TODO: span over many lifelines
         elif event.type == EventType.NOTE:
@@ -82,13 +89,13 @@ def generate_plantuml_sequence(lifelines, chartdata):
                 participant = find_nearest_lifeline(lifelines, event.position)
                 if '\n' in text:
                     # Handle multiline notes
-                    result.append('note over %s' % (quote_if_space(participant.name)))
-                    result.append(text)
-                    result.append('end note')
+                    result.append('%s%s %s' % (' '*indent, 'note over', quote_if_space(participant.name)))
+                    result.append('%s%s' %    (' '*indent, text))
+                    result.append('%s%s' %    (' '*indent, 'end note'))
                 else:
-                    result.append('note over %s: %s' % (quote_if_space(participant.name), text))
+                    result.append('%s%s %s: %s' % (' '*indent, 'note over', quote_if_space(participant.name), text))
             else:
-                result.append('note top: %s' % (text))
+                result.append('%s%s: %s' % (' '*indent, 'note top', text))
 
 # TODO: span over many lifelines
         elif event.type == EventType.REF:
@@ -110,6 +117,7 @@ def generate_plantuml_sequence(lifelines, chartdata):
 
         logging.debug("Position: %s", event.position)
 
+    result.append("")
     result.append("@enduml")
     return result
 

@@ -71,7 +71,7 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
 
         box = UsecaseBox(box_name)
         diagramdata.boxes[id] = box
-        logging.debug("Parsed box: %s", box)
+        logging.debug("  Parsed box: %s", box)
 
     # Parse usecases in diagram
     for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass"):
@@ -84,10 +84,10 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
 
             if parent_id in diagramdata.boxes:
                 diagramdata.boxes[parent_id].ucs.append(all_usecases[model_id])
-                logging.debug("Adding to box: %s", all_usecases[model_id])
+                logging.debug("  Adding to box: %s", all_usecases[model_id])
             else:
                 diagramdata.ucs.append(all_usecases[model_id])
-                logging.debug("Adding to global: %s", all_usecases[model_id])
+                logging.debug("  Adding to global: %s", all_usecases[model_id])
 
         # Handle participants
         elif len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IActor']")):
@@ -133,13 +133,12 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
             for cgi_anchor_object in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_list[0] + "']/m_pModelObject/IHandle/_id/text()"):
                 note.anchors.append(cgi_anchor_object)
 
-        logging.debug("Parsed note: %s", note)
+        logging.debug("  Parsed note: %s", note)
         diagramdata.notes.append(note)
 
 
     # Parse associations arrows
     for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAssociationEnd"):
-        logging.debug("Parsed association")
 
         #logging.debug("Parsed association id=%s", cgi.xpath("_id/text()"))
         #assert len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IAssociationEnd']")) == 1
@@ -163,11 +162,12 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
         target = target_list[0]
 
         assoc = UsecaseArrow(source, target)
+        logging.debug("  Parsed association: %s", assoc)
         diagramdata.associations.append(assoc)
 
     # Parse inheritance arrows
     for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIInheritance"):
-        logging.debug("Parsed inheritance")
+        logging.debug("  Parsed inheritance")
 
         #assert len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IDependency']")) == 1
 
