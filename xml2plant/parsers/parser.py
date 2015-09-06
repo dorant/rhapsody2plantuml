@@ -310,6 +310,7 @@ def parse_conditions(node, events_result):
                 msg = ConditionStart()
                 text = ''
 
+                # Only specifc conditions allowed
                 allowed = ['alt','else','opt','loop','par','break','critical']
                 if cond not in allowed:
                     text = cond + " "
