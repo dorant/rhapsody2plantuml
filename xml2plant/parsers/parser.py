@@ -308,15 +308,23 @@ def parse_conditions(node, events_result):
             # Start
             if not last_id:
                 msg = ConditionStart()
-                msg.cond = cond
+                text = ''
+
+                allowed = ['alt','else','opt','loop','par','break','critical']
+                if cond not in allowed:
+                    text = cond + " "
+                    cond = 'group'
+
                 constraint = operand.xpath("_interactionConstraint/text()")
                 if len(constraint) > 0:
-                    msg.text = constraint[0]
+                    text += constraint[0]
+
                 msg.id = id
+                msg.cond = cond
+                msg.text = text
+
                 logging.debug("Added start: %s", msg)
                 logging.debug("         id: %s", id)
-                logging.debug("       type: %s", cond)
-
 
             else:
                 msg = ConditionElse()
