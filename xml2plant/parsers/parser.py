@@ -253,7 +253,7 @@ def parse_class(xml_node, participants, base_name):
                 type = PartType.INTERFACE
 
         participants[id] = Participant(type, name)
-        logging.debug("Added: %s for id=%s", participants[id], id)
+        logging.debug("  Added: %s for id=%s", participants[id], id)
 
         for subclass in xml_node.findall("Declaratives/IRPYRawContainer/IClass"):
             parse_class(subclass, participants, name + "::")
@@ -262,6 +262,7 @@ def parse_class(xml_node, participants, base_name):
 def parse_classes(xml_node, participants):
     """ Get all classes from an xml-node/root
     """
+    logging.debug("Parsing global classes:")
     for iclass in xml_node.findall("ISubsystem/Classes/IRPYRawContainer/IClass"):
         parse_class(iclass, participants, "")
 
@@ -269,6 +270,7 @@ def parse_classes(xml_node, participants):
 def parse_actors(xml_node, participants):
     """ Get all actors from an xml-node/root
     """
+    logging.debug("Parsing global actors:")
     for iactor in xml_node.findall(".//ISubsystem/Actors/IRPYRawContainer/IActor"):
         if int(iactor.xpath("_myState/text()")[0]) == 8192:
             name = iactor.xpath("_name/text()")[0]
@@ -286,7 +288,7 @@ def parse_actors(xml_node, participants):
                     actor.associations.append(assoc_node.xpath("_otherClass/IClassifierHandle/_id/text()")[0])
 
             participants[id] = actor
-            logging.debug("Added: %s", participants[id])
+            logging.debug("  Added: %s", participants[id])
 
 # Parse a opt-box in a statechart
 def parse_conditions(node, events_result):
@@ -563,7 +565,7 @@ def parse_sequencediagram(xml_node, participants, find_name):
 
                     divider_text = column.xpath("m_name/CGIText/m_str/text()")
                     if len(divider_text) > 0:
-                        msg.text = divider_text[0]
+                        msg.text = divider_text[0].strip()
 
                     msg.position = Position()
                     transform = Transform(column.xpath("m_transform/text()")[0])

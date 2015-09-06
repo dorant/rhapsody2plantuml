@@ -7,6 +7,7 @@ OPTIND=1
 VERBOSE=0
 FORCE=0
 RENAME=0
+DEBUG=0
 FORCE_FAILURES=0
 FORCE_FILES=()
 NO_OF_FILES=0
@@ -17,7 +18,7 @@ NO_OF_FILES=0
 # - IDiagram   - Class/Object digrams
 PATTERN='{ IMSC\|{ IUCDiagram\|{ IDiagram'
 
-while getopts "h?vfr" opt; do
+while getopts "h?vfrd" opt; do
     case "$opt" in
         h|\?)
             echo "Usage: $0 <path to convert sbs-files>"
@@ -26,6 +27,7 @@ while getopts "h?vfr" opt; do
             echo " -v  Verbose log loutput"
             echo " -f  Continue even there is parser failures"
             echo " -r  Rename destination paths to a folder without the postfix '_rpy'"
+            echo " -d  Debug: temporary xml-files not removed"
             exit 1
             ;;
         v)  VERBOSE=1
@@ -34,17 +36,20 @@ while getopts "h?vfr" opt; do
             ;;
         r)  RENAME=1
             ;;
+        d)  DEBUG=1
+            ;;
     esac
 done
 
 shift $((OPTIND-1))
-DIR="$1"
-[ ! -d $DIR ]  && { echo ""; echo "The path is not a directory or is not existing:"; echo $DIR; echo ""; exit 1; }
+FILE_OR_DIR="$1"
 
 [[ $VERBOSE -ne 0 ]] && verbose_flag="-v"
 [[ $RENAME -ne 0 ]] && rename_flag="-r"
 
-while read -r file ; do
+
+function convert_file() {
+    file=$1
 
     # Convert each sbs to xml
     echo "Converting: $file"
@@ -80,11 +85,25 @@ while read -r file ; do
             exit 1
         fi
     else
-        # Remove temporary file
-        rm ${file}.xml
+        if [ $DEBUG -ne 1 ]; then
+            # Remove temporary file
+            rm ${file}.xml
+        fi
     fi
+}
 
-done < <(grep --include *.sbs -rl -e "$PATTERN" $DIR )  # process substitution
+
+if [ -d $FILE_OR_DIR ]; then
+    while read -r file ; do
+        convert_file $file
+    done < <(grep --include *.sbs -rl -e "$PATTERN" $FILE_OR_DIR )  # process substitution
+elif [ -f $FILE_OR_DIR ]; then
+    convert_file $FILE_OR_DIR
+else
+    echo ""
+    echo "The given path is not a valid directory or file:"; echo $FILE_OR_DIR; echo "";
+    exit 1;
+fi
 
 # Show results
 echo ""
