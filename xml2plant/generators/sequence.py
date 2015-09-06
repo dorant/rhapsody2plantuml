@@ -113,6 +113,7 @@ def generate_plantuml_sequence(lifelines, chartdata):
                 result.append('note top: %s' % (text))
 
         elif event.type == EventType.DIVIDER:
+            result.append("")
             result.append("== %s ==" % event.text)
 
         logging.debug("Position: %s", event.position)

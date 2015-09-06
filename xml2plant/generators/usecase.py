@@ -14,7 +14,7 @@ def print_arrows(diagram, uc, indent, result):
         if arrow.source == uc.id:
             if arrow.target in diagram.participants:
                 uc_appended = True
-                result.append('%s(%s%s) --> %s' % (indent,
+                result.append('%s(%s%s) -- %s' % (indent,
                                                    uc.name,
                                                    link,
                                                    diagram.participants[arrow.target].name.replace(" ","_") ))
@@ -22,7 +22,7 @@ def print_arrows(diagram, uc, indent, result):
         elif arrow.target == uc.id:
             if arrow.source in diagram.participants:
                 uc_appended = True
-                result.append('%s%s --> (%s%s)' % (indent,
+                result.append('%s%s -- (%s%s)' % (indent,
                                                    diagram.participants[arrow.source].name.replace(" ","_"),
                                                    uc.name,
                                                    link))
