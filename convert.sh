@@ -8,6 +8,8 @@ VERBOSE=0
 FORCE=0
 RENAME=0
 DEBUG=0
+CHECK=0
+PLANTUML=""
 FORCE_FAILURES=0
 FORCE_FILES=()
 NO_OF_FILES=0
@@ -18,7 +20,27 @@ NO_OF_FILES=0
 # - IDiagram   - Class/Object digrams
 PATTERN='{ IMSC\|{ IUCDiagram\|{ IDiagram'
 
-while getopts "h?vfrd" opt; do
+# Trap ctrl-c
+trap ctrl_c INT
+
+function ctrl_c() {
+    echo "Script halted before finished!"
+    print_results
+    exit 0
+}
+
+function print_results() {
+    echo ""
+    if [ $FORCE -ne 0 ] && [ $FORCE_FAILURES -ne 0 ]; then
+        echo "Number of failures: ${FORCE_FAILURES} of ${NO_OF_FILES}"
+        printf '%s\n' "${FORCE_FILES[@]}"
+    else
+        echo "Done. ${NO_OF_FILES} files converted."
+    fi
+    echo ""
+}
+
+while getopts "h?vfrdc:" opt; do
     case "$opt" in
         h|\?)
             echo "Usage: $0 <path to convert sbs-files>"
@@ -28,6 +50,7 @@ while getopts "h?vfrd" opt; do
             echo " -f  Continue even there is parser failures"
             echo " -r  Rename destination paths to a folder without the postfix '_rpy'"
             echo " -d  Debug: temporary xml-files not removed"
+            echo " -c <platuml.jar path> Perform a validation check towards PlantUML"
             exit 1
             ;;
         v)  VERBOSE=1
@@ -38,6 +61,9 @@ while getopts "h?vfrd" opt; do
             ;;
         d)  DEBUG=1
             ;;
+        c)  CHECK=1
+            PLANTUML=$OPTARG
+            ;;
     esac
 done
 
@@ -46,6 +72,7 @@ FILE_OR_DIR="$1"
 
 [[ $VERBOSE -ne 0 ]] && verbose_flag="-v"
 [[ $RENAME -ne 0 ]] && rename_flag="-r"
+[[ $CHECK -ne 0 ]] && check_flag="-p $PLANTUML"
 
 
 function convert_file() {
@@ -72,19 +99,25 @@ function convert_file() {
 
     # Convert each sbs.xml to diagrams
     echo "   Parsing: ${file}.xml"
-    $BASEDIR/xml2plant/xml2plant.py ${verbose_flag} ${rename_flag} -g ${file}.xml
-
+    $BASEDIR/xml2plant/xml2plant.py ${verbose_flag} ${rename_flag} ${check_flag} -g ${file}.xml
+    
     if [ $? -ne 0 ]; then
+        # Parser failure
         if [ $FORCE -ne 0 ]; then
             FORCE_FAILURES=$((FORCE_FAILURES + 1))
             FORCE_FILES+=($file)
             echo "  Failed to parse file. Forced continuation.."
         else
-            echo "  Failed to parse file!!"
+            if [ $CHECK -ne 0 ]; then
+                echo "  Failed to parse or checking PlantUML syntax!!"
+            else
+                echo "  Failed to parse file!!"
+            fi
             echo ""
             exit 1
         fi
     else
+        # Parsing was fine
         if [ $DEBUG -ne 1 ]; then
             # Remove temporary file
             rm ${file}.xml
@@ -106,11 +139,4 @@ else
 fi
 
 # Show results
-echo ""
-if [ $FORCE -ne 0 ] && [ $FORCE_FAILURES -ne 0 ]; then
-    echo "Number of failures: ${FORCE_FAILURES} of ${NO_OF_FILES}"
-    printf '%s\n' "${FORCE_FILES[@]}"
-else
-    echo "Done. ${NO_OF_FILES} files converted."
-fi
-echo ""
+print_results

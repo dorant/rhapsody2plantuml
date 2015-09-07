@@ -2,6 +2,7 @@
 import sys
 import logging
 import os.path
+import subprocess
 from lxml import etree
 from argparse import ArgumentParser
 from argparse import ArgumentDefaultsHelpFormatter
@@ -40,6 +41,15 @@ def print_diagram_names(xmlnode):
         print "  ", name
 
 
+# Syntax check a file towards the platuml, return True if fine
+def check_syntax(plantumljar, file):
+    ps = subprocess.Popen(('cat', file), stdout=subprocess.PIPE)
+    output = subprocess.check_output(['java', '-jar', plantumljar, '-syntax'], stdin=ps.stdout, stderr=subprocess.STDOUT)
+    ps.wait()
+    error_found = "ERROR" in output 
+    return  not error_found
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(formatter_class = ArgumentDefaultsHelpFormatter)
     parser.add_argument("file", help="XML file to parse")
@@ -50,6 +60,7 @@ if __name__ == "__main__":
     parser.add_argument("-u", dest="usecase", help="Name of usecase diagram to generate to PlantUML")
     parser.add_argument("-c", dest="classdiagram", help="Name of class or object diagram to generate to PlantUML")
     parser.add_argument("-r", dest="rename", help="Rename destination path to a folder without the postfix '_rpy'", action="store_true")
+    parser.add_argument("-p", dest="plantuml", help="Check result towards PlantUML. PlantUML jar shall be given.")
     options = parser.parse_args()
 
     if options.verbose:
@@ -92,6 +103,11 @@ if __name__ == "__main__":
             f.write('\n'.join(uml).encode('ascii',errors='ignore'))
             f.close()
 
+            if options.plantuml:
+                if not check_syntax(options.plantuml, filename):
+                    print "PlantUML syntax check failed on:"+filename
+                    sys.exit(1)
+
         # Sequence diagrams
         for name in get_sequence_list(root):
             filename = os.path.join(path, "SEQ_" + name.replace(" ", "_") + ".plantuml")
@@ -106,6 +122,11 @@ if __name__ == "__main__":
             f.write('\n'.join(uml).encode('ascii',errors='ignore'))
             f.close()
 
+            if options.plantuml:
+                if not check_syntax(options.plantuml, filename):
+                    print "PlantUML syntax check failed on:"+filename
+                    sys.exit(1)
+
         # Class diagrams
         for name in get_classdiagram_list(root):
             filename = os.path.join(path, "CL_" + name.replace(" ", "_") + ".plantuml")
@@ -119,6 +140,11 @@ if __name__ == "__main__":
             f = open(filename,'w')
             f.write('\n'.join(uml).encode('ascii',errors='ignore'))
             f.close()
+
+            if options.plantuml:
+                if not check_syntax(options.plantuml, filename):
+                    print "PlantUML syntax check failed on:"+filename
+                    sys.exit(1)
 
     # Generate sequence diagram
     elif options.sequence:
