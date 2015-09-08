@@ -72,11 +72,11 @@ def generate_plantuml_sequence(lifelines, chartdata):
                                                    event.name, event.args))
 
         elif event.type == EventType.COND_START:
-            result.append('%s%s %s' % (' '*indent, event.cond, event.text))
+            result.append('%s%s %s' % (' '*indent, event.cond, event.text.replace('\n','')))
             indent += indent_step
 
         elif event.type == EventType.COND_ELSE:
-            result.append('%s%s %s' % (' '*(indent-indent_step), event.cond, event.text))
+            result.append('%s%s %s' % (' '*(indent-indent_step), event.cond, event.text.replace('\n','')))
 
         elif event.type == EventType.COND_END:
             indent -= indent_step
@@ -95,7 +95,13 @@ def generate_plantuml_sequence(lifelines, chartdata):
                 else:
                     result.append('%s%s %s: %s' % (' '*indent, 'note over', quote_restricted_chars(participant.name), text))
             else:
-                result.append('%s%s: %s' % (' '*indent, 'note top', text))
+                if '\n' in text:
+                    # Handle multiline notes
+                    result.append('%s%s' % (' '*indent, 'note top'))
+                    result.append('%s%s' % (' '*indent, text))
+                    result.append('%s%s' % (' '*indent, 'end note'))
+                else:
+                    result.append('%s%s: %s' % (' '*indent, 'note top', text))
 
 # TODO: span over many lifelines
         elif event.type == EventType.REF:
@@ -114,7 +120,7 @@ def generate_plantuml_sequence(lifelines, chartdata):
 
         elif event.type == EventType.DIVIDER:
             result.append("")
-            result.append("== %s ==" % event.text)
+            result.append('== %s ==' % event.text.replace('\n', ''))
 
         logging.debug("Position: %s", event.position)
 

@@ -71,11 +71,15 @@ def generate_plantuml_classdiagram(diagram):
         result.append("%s %s %s" % (data["target"], "<|--", data["source"]))
 
     for data in diagram["associations"]:
-#        result.append("%s %s--> %s %s" % (data["source"], quote_if_text(data["sourcerole"]),
-#                                  quote_if_text(data["targetrole"]), data["target"]))
-        result.append("%s %s--> %s %s : %s" % (data["source"], quote_if_text(data["sourcemultiplicity"]),
-                                               quote_if_text(data["targetmultiplicity"]), data["target"],
-                                               data["targetrole"]))
+        targetrole = ""
+        if data["targetrole"]:
+            targetrole = " : %s" % (data["targetrole"])
+
+        result.append("%s%s-->%s%s%s" % (data["source"],
+                                         quote_if_text(data["sourcemultiplicity"]),
+                                         quote_if_text(data["targetmultiplicity"]),
+                                         data["target"],
+                                         targetrole))
 
 
     result.append("@enduml")
