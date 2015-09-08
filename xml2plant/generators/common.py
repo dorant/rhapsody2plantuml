@@ -1,5 +1,7 @@
-def quote_if_space(string):
-    if " " in string:
+import re
+
+def quote_restricted_chars(string):
+    if re.search('[ :]', string):
         return '"%s"' % (string)
     else:
         return string

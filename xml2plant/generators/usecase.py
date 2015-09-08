@@ -1,6 +1,6 @@
 #!/bin/env python2
 import logging
-from common import quote_if_space
+from common import quote_restricted_chars
 
 def print_arrows(diagram, uc, indent, result):
     uc_appended = False
@@ -132,7 +132,7 @@ def generate_plantuml_usecase(diagram):
     # Adding boxes with usecases
     for box_id in diagram.boxes:
         rect_name = diagram.boxes[box_id].name
-        result.append('rectangle %s {' % quote_if_space(rect_name))
+        result.append('rectangle %s {' % quote_restricted_chars(rect_name))
         logging.debug("%s", rect_name)
 
         for uc in diagram.boxes[box_id].ucs:

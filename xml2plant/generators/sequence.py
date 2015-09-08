@@ -1,6 +1,6 @@
 #!/bin/env python2
 import logging
-from common import quote_if_space
+from common import quote_restricted_chars
 
 from parsers.parser import PartType
 from parsers.parser import EventType
@@ -44,9 +44,9 @@ def generate_plantuml_sequence(lifelines, chartdata):
             color = "#F5F5F5"
 
         if part.type == PartType.ACTOR:
-            result.append('actor %s %s' % (quote_if_space(part.name), color))
+            result.append('actor %s %s' % (quote_restricted_chars(part.name), color))
         else:
-            result.append('participant %s %s' % (quote_if_space(part.name), color))
+            result.append('participant %s %s' % (quote_restricted_chars(part.name), color))
 
         logging.debug("Position: %s", part.position)
     result.append("")
@@ -66,9 +66,9 @@ def generate_plantuml_sequence(lifelines, chartdata):
                 arrow = "-->"
                 
             result.append('%s%s %s %s : %s(%s)' % (' '*indent,
-                                                   quote_if_space(lifelines[event.sender].name),
+                                                   quote_restricted_chars(lifelines[event.sender].name),
                                                    arrow,
-                                                   quote_if_space(lifelines[event.receiver].name),
+                                                   quote_restricted_chars(lifelines[event.receiver].name),
                                                    event.name, event.args))
 
         elif event.type == EventType.COND_START:
@@ -89,11 +89,11 @@ def generate_plantuml_sequence(lifelines, chartdata):
                 participant = find_nearest_lifeline(lifelines, event.position)
                 if '\n' in text:
                     # Handle multiline notes
-                    result.append('%s%s %s' % (' '*indent, 'note over', quote_if_space(participant.name)))
+                    result.append('%s%s %s' % (' '*indent, 'note over', quote_restricted_chars(participant.name)))
                     result.append('%s%s' %    (' '*indent, text))
                     result.append('%s%s' %    (' '*indent, 'end note'))
                 else:
-                    result.append('%s%s %s: %s' % (' '*indent, 'note over', quote_if_space(participant.name), text))
+                    result.append('%s%s %s: %s' % (' '*indent, 'note over', quote_restricted_chars(participant.name), text))
             else:
                 result.append('%s%s: %s' % (' '*indent, 'note top', text))
 
@@ -104,11 +104,11 @@ def generate_plantuml_sequence(lifelines, chartdata):
                 participant = find_nearest_lifeline(lifelines, event.position)
                 if '\n' in text:
                     # Handle multiline reference
-                    result.append('ref over %s' % (quote_if_space(participant.name)))
+                    result.append('ref over %s' % (quote_restricted_chars(participant.name)))
                     result.append(text)
                     result.append('end ref')
                 else:
-                    result.append('ref over %s : %s' % (quote_if_space(participant.name), text))
+                    result.append('ref over %s : %s' % (quote_restricted_chars(participant.name), text))
             else:
                 result.append('note top: %s' % (text))
 

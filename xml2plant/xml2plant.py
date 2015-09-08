@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
             if options.plantuml:
                 if not check_syntax(options.plantuml, filename):
-                    print "PlantUML syntax check failed on:"+filename
+                    print "PlantUML syntax check failed on: "+filename
                     sys.exit(1)
 
         # Sequence diagrams
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
             if options.plantuml:
                 if not check_syntax(options.plantuml, filename):
-                    print "PlantUML syntax check failed on:"+filename
+                    print "PlantUML syntax check failed on: "+filename
                     sys.exit(1)
 
         # Class diagrams
@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
             if options.plantuml:
                 if not check_syntax(options.plantuml, filename):
-                    print "PlantUML syntax check failed on:"+filename
+                    print "PlantUML syntax check failed on: "+filename
                     sys.exit(1)
 
     # Generate sequence diagram
