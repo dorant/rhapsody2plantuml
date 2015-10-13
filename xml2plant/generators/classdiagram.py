@@ -24,6 +24,7 @@ def generate_plantuml_classdiagram(diagram):
     result.append("")
 
     # Add packages not including any classes
+    '''
     add_newline = None
     for pkgid in diagram["packages"]:
         if len(diagram["packages"][pkgid]["includes"]) == 0:
@@ -32,6 +33,7 @@ def generate_plantuml_classdiagram(diagram):
 
     if add_newline:
         result.append("")
+    '''
 
     # Add actors definition
     add_newline = None
