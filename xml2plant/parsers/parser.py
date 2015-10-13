@@ -201,7 +201,7 @@ class ConditionStart(Event):
         self.text = ""
 
     def __str__(self):
-        return "ConditionStart(%s %s)" % (self.cond, self.position)
+        return "ConditionStart(%s %s %s)" % (self.cond, self.position, self.text)
 
 class ConditionElse(Event):
     def __init__(self):
@@ -210,7 +210,7 @@ class ConditionElse(Event):
         self.text = ""
 
     def __str__(self):
-        return "ConditionElse(%s %s)" % (self.cond, self.position)
+        return "ConditionElse(%s %s %s)" % (self.cond, self.position, self.text)
 
 
 class ConditionEnd(Event):
@@ -231,7 +231,7 @@ class Divider(Event):
         super(Divider, self).__init__(EventType.DIVIDER)
         self.text = ""
     def __str__(self):
-        return "Divider(%s)" % (self.position)
+        return "Divider(%s text=%s)" % (self.position, self.text)
 
 class Reference(Event):
     def __init__(self):

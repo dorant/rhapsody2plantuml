@@ -26,7 +26,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
     for diagram in xml_node.findall(str):
 
         # Chartname
-        diagramdata["name"] = find_name
+        diagramdata["name"] = find_name.replace('_',' ')
         logging.debug("Parsing diagram: %s", find_name)
 
         root = diagram.xpath("_graphicChart/CGIClassChart/m_pRoot/text()")[0]
@@ -180,7 +180,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                 pkg["includes"] = []
                 for classid in classes:
                     if classes[classid]["parent"] == id:
-                        pkg["includes"].append(classes[classid]["name"])
+                        pkg["includes"].append(classid)
 
                 packages[id] = pkg
                 logging.debug("Adding package: %s", name)
@@ -241,9 +241,11 @@ def parse_classdiagram(xml_node, global_participants, find_name):
 
             assoc = {}
             assoc["source"] = get_name_for_object(source, classes, components, packages, actors, types, modules)
+            assoc["source_id"] = source
             assoc["sourcerole"] = sourcerole
             assoc["sourcemultiplicity"] = sourcemulti
             assoc["target"] = get_name_for_object(target, classes, components, packages, actors, types, modules)
+            assoc["target_id"] = target
             assoc["targetrole"] = targetrole
             assoc["targetmultiplicity"] = targetmulti
             associations.append(assoc)

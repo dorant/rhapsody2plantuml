@@ -6,12 +6,21 @@ from parsers.parser import PartType
 from parsers.parser import EventType
 from parsers.parser import MessageType
 
+def get_namespace(diagram, class_id, class_name):
+    for pkgid in diagram["packages"]:
+        for id in diagram["packages"][pkgid]["includes"]:
+            if class_id == id:
+                return diagram["packages"][pkgid]["name"] + "::" + class_name
+    return class_name
+
 
 def generate_plantuml_classdiagram(diagram):
     result = []
 
     result.append("@startuml")
     result.append("title %s" % diagram["name"])
+    result.append("")
+    result.append("set namespaceSeparator ::")
     result.append("")
 
     # Add packages not including any classes
@@ -34,13 +43,15 @@ def generate_plantuml_classdiagram(diagram):
         result.append("")
 
     # Add classes
+    '''
+    TEMPORARY REMOVED
     for id in diagram["classes"]:
 
         # Check if included in a package
         add_pkg_end = None
         for pkgid in diagram["packages"]:
-            for name in diagram["packages"][pkgid]["includes"]:
-                if name == diagram["classes"][id]["name"]:
+            for class_id in diagram["packages"][pkgid]["includes"]:
+                if class_id == id:
                     result.append("package %s {" % diagram["packages"][pkgid]["name"])
                     add_pkg_end = 1
 
@@ -57,6 +68,7 @@ def generate_plantuml_classdiagram(diagram):
 
         if add_pkg_end:
             result.append("}")
+    '''
 
     # Add types
     add_newline = None
@@ -75,11 +87,16 @@ def generate_plantuml_classdiagram(diagram):
         if data["targetrole"]:
             targetrole = " : %s" % (data["targetrole"])
 
-        result.append("%s%s-->%s%s%s" % (data["source"],
-                                         quote_if_text(data["sourcemultiplicity"]),
-                                         quote_if_text(data["targetmultiplicity"]),
-                                         data["target"],
-                                         targetrole))
+        dot = ""
+        if len(data["sourcemultiplicity"]) == 0:
+            dot = "*"
+
+        result.append("%s%s%s-->%s%s%s" % (get_namespace(diagram, data["source_id"], data["source"]),
+                                           quote_if_text(data["sourcemultiplicity"]),
+                                           dot,
+                                           quote_if_text(data["targetmultiplicity"]),
+                                           get_namespace(diagram, data["target_id"], data["target"]),
+                                           targetrole))
 
 
     result.append("@enduml")

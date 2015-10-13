@@ -6,7 +6,9 @@ def print_arrows(diagram, uc, indent, result):
     uc_appended = False
 
     if len(uc.linked_diagram_name) > 0:
-        link = "  [[file://SEQ_%s.plantuml]]" % (uc.linked_diagram_name.replace(" ", "_"))
+        link = ""
+        # TO BE CORRECTED
+        #link = "  [[file://SEQ_%s.plantuml]]" % (uc.linked_diagram_name.replace(" ", "_"))
     else:
         link = ""
 

@@ -32,6 +32,7 @@ def find_nearest_lifeline(lifelines, position):
 def generate_plantuml_sequence(lifelines, chartdata):
     result = []
 
+    logging.debug("Print: Header for: %s", chartdata["name"])
     result.append("@startuml")
     result.append("hide footbox")
     result.append("title %s" % chartdata["name"])
@@ -48,7 +49,7 @@ def generate_plantuml_sequence(lifelines, chartdata):
         else:
             result.append('participant %s %s' % (quote_restricted_chars(part.name), color))
 
-        logging.debug("Position: %s", part.position)
+        logging.debug("Print: %s", part)
     result.append("")
 
     # TODO: handle this nicer..
@@ -57,7 +58,7 @@ def generate_plantuml_sequence(lifelines, chartdata):
 
     # Print all events(messages/conditions and more)
     for event in sorted(chartdata["events"], key=lambda x: x.position.top_left_y):
-        logging.debug("Print events: %s", event)
+        logging.debug("Print event: %s", event)
 
         # Handle messsage arrows
         if event.type == EventType.MESSAGE:
@@ -122,7 +123,7 @@ def generate_plantuml_sequence(lifelines, chartdata):
             result.append("")
             result.append('== %s ==' % event.text.replace('\n', ''))
 
-        logging.debug("Position: %s", event.position)
+        #logging.debug("Position: %s", event.position)
 
     result.append("")
     result.append("@enduml")
