@@ -1,4 +1,4 @@
-#!/bin/env python2
+#!/bin/env python
 import sys
 import logging
 import os.path
@@ -96,18 +96,21 @@ if __name__ == "__main__":
 
             # Parse
             ucdata = parse_usecasediagram(root, participants, name)
-            uml = generate_plantuml_usecase(ucdata)
+            if ucdata:
+                uml = generate_plantuml_usecase(ucdata)
 
-            # Save to file
-            f = open(filename,'w')
-            f.write('\n'.join(uml).encode('ascii',errors='ignore'))
-            f.close()
+                # Save to file
+                f = open(filename,'w')
+                f.write('\n'.join(uml).encode('ascii',errors='ignore'))
+                f.close()
 
-            if options.plantuml:
-                if not check_syntax(options.plantuml, filename):
-                    print "PlantUML syntax check failed on: "+filename
-                    sys.exit(1)
-
+                if options.plantuml:
+                    if not check_syntax(options.plantuml, filename):
+                        print "PlantUML syntax check failed on: "+filename
+                        sys.exit(1)
+            else:
+                print "   *** Generation failed ***"
+                
         # Sequence diagrams
         for name in get_sequence_list(root):
             filename = os.path.join(path, "SEQ_" + name.replace(" ", "_") + ".plantuml")
@@ -134,17 +137,20 @@ if __name__ == "__main__":
 
             # Parse
             data = parse_classdiagram(root, participants, name)
-            uml = generate_plantuml_classdiagram(data)
+            if data:
+                uml = generate_plantuml_classdiagram(data)
 
-            # Save to file
-            f = open(filename,'w')
-            f.write('\n'.join(uml).encode('ascii',errors='ignore'))
-            f.close()
+                # Save to file
+                f = open(filename,'w')
+                f.write('\n'.join(uml).encode('ascii',errors='ignore'))
+                f.close()
 
-            if options.plantuml:
-                if not check_syntax(options.plantuml, filename):
-                    print "PlantUML syntax check failed on: "+filename
-                    sys.exit(1)
+                if options.plantuml:
+                    if not check_syntax(options.plantuml, filename):
+                        print "PlantUML syntax check failed on: "+filename
+                        sys.exit(1)
+            else:
+                print "   *** Generation failed ***"
 
     # Generate sequence diagram
     elif options.sequence:

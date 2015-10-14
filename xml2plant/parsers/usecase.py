@@ -1,4 +1,4 @@
-#!/bin/env python2
+#!/bin/env python
 import logging
 
 from parsers.parser import Participant
@@ -43,6 +43,7 @@ def parse_all_usecases(xml_node):
 
 
 # Parse a specific diagram
+# Return None if failure
 def parse_usecasediagram(xml_node, global_participants, find_name):
 
     # Find the usecase diagram
@@ -50,7 +51,6 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
     if len(diagrams) == 0:
         return None
 
-    assert len(diagrams) == 1
     diagram = diagrams[0]
 
     name = diagram.xpath("_name/text()")[0]
@@ -80,7 +80,7 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
         # Handle usecase
         if len(cgi.xpath("m_pModelObject/IHandle[_m2Class='IUseCase']")):
             parent_id = cgi.xpath("m_pParent/text()")[0]
-            assert model_id in all_usecases
+            if not (model_id in all_usecases): return None
 
             if parent_id in diagramdata.boxes:
                 diagramdata.boxes[parent_id].ucs.append(all_usecases[model_id])
@@ -98,7 +98,7 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
                 actor_name = cgi.xpath("m_pModelObject/IHandle/_name/text()")[0]
                 diagramdata.participants[model_id] = Participant(PartType.ACTOR, actor_name)
         else:
-            assert None
+            return None
 
     # Parse notes in diagram
     for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAnnotation"):
@@ -117,7 +117,7 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
             #logging.debug("Found anchor to note")
 
             target_list = cgi_anchor.xpath("m_pTarget/text()")
-            assert len(target_list) == 1
+            if len(target_list) != 1: return None
 
             # Get where its pointing
             for cgi_anchor_object in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + target_list[0] + "']/m_pModelObject/IHandle/_id/text()"):
@@ -127,7 +127,7 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
             #logging.debug("Found anchor to note")
 
             source_list = cgi.xpath("m_pSource/text()")
-            assert len(source_list) == 1
+            if len(source_list) != 1: return None
 
             # Get where its pointing
             for cgi_anchor_object in diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_list[0] + "']/m_pModelObject/IHandle/_id/text()"):
@@ -145,20 +145,20 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
 
         # Get source
         source_node = cgi.xpath("m_pSource/text()")
-        assert len(source_node) == 1
+        if len(source_node) != 1: return None
 
         # Get where its pointing
         source_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_node[0] + "']/m_pModelObject/IHandle/_id/text()")
-        assert len(source_list) == 1
+        if len(source_list) != 1: return None
         source = source_list[0]
     
         # Get target
         target_node = cgi.xpath("m_pTarget/text()")
-        assert len(target_node) == 1
+        if len(target_node) != 1: return None
 
         # Get where its pointing
         target_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + target_node[0] + "']/m_pModelObject/IHandle/_id/text()")
-        assert len(target_list) == 1
+        if len(target_list) != 1: return None
         target = target_list[0]
 
         assoc = UsecaseArrow(source, target)
@@ -173,20 +173,20 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
 
         # Get source
         source_node = cgi.xpath("m_pSource/text()")
-        assert len(source_node) == 1
+        if len(source_node) != 1: return None
 
         # Get where its pointing
         source_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + source_node[0] + "']/m_pModelObject/IHandle/_id/text()")
-        assert len(source_list) == 1
+        if len(source_list) != 1: return None
         source = source_list[0]
     
         # Get target
         target_node = cgi.xpath("m_pTarget/text()")
-        assert len(target_node) == 1
+        if len(target_node) != 1: return None
 
         # Get where its pointing
         target_list = diagram.xpath("_graphicChart/CGIClassChart/CGIBasicClass[_id='" + target_node[0] + "']/m_pModelObject/IHandle/_id/text()")
-        assert len(target_list) == 1
+        if len(target_list) != 1: return None
         target = target_list[0]
 
         dep = UsecaseArrow(source, target)

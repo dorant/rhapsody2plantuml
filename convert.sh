@@ -80,7 +80,7 @@ function convert_file() {
 
     # Convert each sbs to xml
     echo "Converting: $file"
-    cat $file | $BASEDIR/sbs2xml/build/sbs2xml > ${file}.xml
+    cat $file | $BASEDIR/sbs2xml/sbs2xml > ${file}.xml
     NO_OF_FILES=$((NO_OF_FILES + 1))
 
     if [ $? -ne 0 ]; then

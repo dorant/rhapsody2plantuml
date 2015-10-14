@@ -1,4 +1,4 @@
-#!/bin/env python2
+#!/bin/env python
 import logging
 
 class UsecaseBox:

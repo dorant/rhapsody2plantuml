@@ -1,4 +1,4 @@
-#!/bin/env python2
+#!/bin/env python
 import logging
 
 from parsers.parser import Participant
@@ -62,7 +62,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                         participants[id] = Participant(PartType.CLASS, name)
 
                 if id not in participants:
-                    assert None
+                    return None
 
                 logging.debug("Adding class: %s", participants[id].name)
     
@@ -80,7 +80,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
 
                 # Get parent
                 parent_node = cgi.xpath("m_pParent/text()")
-                assert len(parent_node) == 1
+                if len(parent_node) != 1: return None
                 cgiclass["parent"] = parent_node[0]
 
                 classes[id] = cgiclass
@@ -103,7 +103,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
 
                     # Get parent
                     parent_node = cgi.xpath("m_pParent/text()")
-                    assert len(parent_node) == 1
+                    if len(parent_node) != 1: return None
                     cgitype["parent"] = parent_node[0]
 
                     types[id] = cgitype
@@ -135,7 +135,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
 
                     # Get parent
                     parent_node = cgi.xpath("m_pParent/text()")
-                    assert len(parent_node) == 1
+                    if len(parent_node) != 1: return None
                     cgimodule["parent"] = parent_node[0]
 
                     modules[id] = cgimodule
@@ -172,7 +172,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
             if len(pkg_node) > 0:
                 name = pkg_node[0]
                 id_node = cgi.xpath("_id/text()")
-                assert len(id_node) == 1
+                if len(id_node) != 1: return None
                 id = id_node[0]
 
                 pkg = {}
@@ -195,7 +195,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                 name = pkg_node[0]
 
                 id_node = cgi.xpath("_id/text()")
-                assert len(id_node) == 1
+                if len(id_node) != 1: return None
                 id = id_node[0]
 
                 comp = {}
@@ -211,7 +211,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
         for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAssociationEnd"):
             # Source
             source_node = cgi.xpath("m_pSource/text()")
-            assert len(source_node) == 1
+            if len(source_node) != 1: return None
             source = source_node[0]
 
             sourcerole = ""
@@ -226,7 +226,7 @@ def parse_classdiagram(xml_node, global_participants, find_name):
 
             # Target
             target_node = cgi.xpath("m_pTarget/text()")
-            assert len(target_node) == 1
+            if len(target_node) != 1: return None
             target = target_node[0]
 
             targetrole = ""
@@ -257,11 +257,11 @@ def parse_classdiagram(xml_node, global_participants, find_name):
         inheritance = []
         for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIInheritance"):
             source_node = cgi.xpath("m_pSource/text()")
-            assert len(source_node) == 1
+            if len(source_node) != 1: return None
             source = source_node[0]
 
             target_node = cgi.xpath("m_pTarget/text()")
-            assert len(target_node) == 1
+            if len(target_node) != 1: return None
             target = target_node[0]
             logging.debug("Got source=%s target=%s", source, target)
 
@@ -274,7 +274,6 @@ def parse_classdiagram(xml_node, global_participants, find_name):
         diagramdata["inheritance"] = inheritance
 
     # Done
-    assert "name" in diagramdata
     return diagramdata
 
 
@@ -296,6 +295,6 @@ def get_name_for_object(id, classes, components, packages, actors, types, module
         name = modules[id]["name"]
     else:
         logging.error("Cant find id=%s", id)
-        assert None
+        name = ""
 
     return name

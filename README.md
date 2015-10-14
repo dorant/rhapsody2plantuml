@@ -14,13 +14,12 @@ to [PlantUML](http://plantuml.sourceforge.net) syntax
 * xml2plant  - tool to convert above XML to PlantUML syntax
 
 ##### Setup
-First build sbs2xml:
+First build the needed tools (sbs2xml) and install it:
 ```
-cd sbs2xml
 mkdir build
 cd build
-cmake ..
-make
+cmake -DCMAKE_INSTALL_PREFIX=<path to install to> ../
+make install
 ```
 
 ##### Usage
@@ -33,4 +32,9 @@ The command will stop when hitting an error.
 Using the force flag all diagrams can be converted even if a single diagram fails:
 ```
 ./convert.sh -f ~/my_rhapsody_project
+```
+
+Verify the result using the PlantUML syntax checker
+```
+./convert.sh -c plantuml.8030.jar -f ~/my_rhapsody_project
 ```

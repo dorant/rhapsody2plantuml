@@ -16,3 +16,8 @@ add_executable(sbs2xml
     ${BISON_Parser_OUTPUTS}
     ${FLEX_Scanner_OUTPUTS}
 )
+
+# Packaging
+install(TARGETS sbs2xml DESTINATION sbs2xml)
+
+

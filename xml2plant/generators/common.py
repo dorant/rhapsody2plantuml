@@ -1,7 +1,7 @@
 import re
 
 def quote_restricted_chars(string):
-    if re.search('[ :()]', string):
+    if re.search('[ :;()-=*?]', string):
         return '"%s"' % (string)
     else:
         return string
