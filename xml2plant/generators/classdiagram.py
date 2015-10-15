@@ -1,6 +1,7 @@
 #!/bin/env python
 import logging
 from common import quote_if_text
+from common import quote_restricted_chars
 
 from parsers.parser import PartType
 from parsers.parser import EventType
@@ -34,6 +35,18 @@ def generate_plantuml_classdiagram(diagram):
     if add_newline:
         result.append("")
     '''
+
+    # Add global/floating notes
+    note_number = 0
+    for noteid in diagram["notes"]:
+        if len(diagram["notes"][noteid]["anchors"]) == 0:
+            text = diagram["notes"][noteid]["text"]
+        
+            result.append("note as N%s" % note_number)
+            result.append(text)
+            result.append("end note")
+            result.append("")
+            note_number += 1
 
     # Add actors definition
     add_newline = None
@@ -99,7 +112,49 @@ def generate_plantuml_classdiagram(diagram):
                                            quote_if_text(data["targetmultiplicity"]),
                                            get_namespace(diagram, data["target_id"], data["target"]),
                                            targetrole))
+    result.append("")
 
+
+    # Adding specific notes
+    for noteid in diagram["notes"]:
+        if len(diagram["notes"][noteid]["anchors"]) > 0:
+            text = diagram["notes"][noteid]["text"]
+
+            anchor_name = ""
+            anchor_id = ""
+
+            logging.debug("Anchorname: %s", anchor_name)
+            for search_anchor_id in diagram["notes"][noteid]["anchors"]:                
+                logging.debug("Search for %s", search_anchor_id)
+                for id in diagram["actors"]:
+                    if search_anchor_id == id:
+                        anchor_name = diagram["actors"][id]
+                        anchor_id = id
+                        logging.debug("FOUND Anchorname: %s", anchor_name)
+
+                for id in diagram["types"]:
+                    if search_anchor_id == id:
+                        anchor_name = diagram["types"][id]["name"]
+                        anchor_id = id
+                        logging.debug("FOUND Anchorname: %s", anchor_name)
+
+                for id in diagram["classes"]:
+                    if search_anchor_id == id:
+                        anchor_name = diagram["classes"][id]["name"]
+                        anchor_id = id
+                        logging.debug("FOUND Anchorname: %s", anchor_name)
+
+            if anchor_name:
+                anchor_name = get_namespace(diagram, anchor_id, anchor_name)
+                logging.debug("WITH namespace: %s", anchor_name)
+
+                result.append('note right of %s' % quote_restricted_chars(anchor_name))
+            else:
+                result.append("note as N%s" % note_number)
+                note_number += 1
+            result.append(text)
+            result.append("end note")
+            result.append("")
 
     result.append("@enduml")
     return result    

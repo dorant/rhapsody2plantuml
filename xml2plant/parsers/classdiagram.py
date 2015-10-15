@@ -273,6 +273,46 @@ def parse_classdiagram(xml_node, global_participants, find_name):
 
         diagramdata["inheritance"] = inheritance
 
+        # Notes
+        notes = {}
+        for cgi in diagram.xpath("_graphicChart/CGIClassChart/CGIAnnotation"):
+            # Get text
+            text_list = cgi.xpath("m_name/CGIText/m_str/text()")
+            if len(text_list) > 0:
+                text = text_list[0]
+
+                logging.debug("Adding note: %s", text)
+
+                id_node = cgi.xpath("_id/text()")
+                if len(id_node) != 1: return None
+                id = id_node[0]
+
+                note = {}
+                note["text"] = text
+                note["anchors"] = []
+
+                # Get anchors from note
+                for cgi_anchor in diagram.xpath("_graphicChart/CGIClassChart/CGIAnchor[m_pSource='" + id + "']"):
+                    logging.debug("Found anchor from note")
+
+                    target_list = cgi_anchor.xpath("m_pTarget/text()")
+                    if len(target_list) != 1: return None
+                    logging.debug("Found anchor to: %s", target_list[0])
+                    note["anchors"].append(target_list[0])
+
+                # Get anchors to note
+                for cgi_anchor in diagram.xpath("_graphicChart/CGIClassChart/CGIAnchor[m_pTarget='" + id + "']"):
+                    logging.debug("Found anchor to note")
+
+                    source_list = cgi_anchor.xpath("m_pSource/text()")
+                    if len(source_list) != 1: return None
+                    logging.debug("Found anchor from: %s", source_list[0])
+                    note["anchors"].append(source_list[0])
+
+                notes[id] = note
+
+        diagramdata["notes"] = notes
+
     # Done
     return diagramdata
 

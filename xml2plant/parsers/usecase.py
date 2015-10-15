@@ -126,7 +126,7 @@ def parse_usecasediagram(xml_node, global_participants, find_name):
         for cgi_anchor in diagram.xpath("_graphicChart/CGIClassChart/CGIAnchor[m_pTarget='" + id + "']"):
             #logging.debug("Found anchor to note")
 
-            source_list = cgi.xpath("m_pSource/text()")
+            source_list = cgi_anchor.xpath("m_pSource/text()")
             if len(source_list) != 1: return None
 
             # Get where its pointing
