@@ -64,10 +64,8 @@ def parse_classdiagram(xml_node, global_participants, find_name):
                 if id not in participants:
                     return None
 
-                logging.debug("Adding class: %s", participants[id].name)
+                logging.debug("Adding class: %s", participants[id])
     
-                # TODO: remove this duplicate check, should be enough with participants above
-
                 cgiclass = {}
 
                 # Get name
@@ -75,14 +73,18 @@ def parse_classdiagram(xml_node, global_participants, find_name):
 
                 # Get stereotype
                 stereotype_node = cgi.xpath("_properties/IPropertyContainer/Subjects/IRPYRawContainer/IPropertySubject[_Name='ObjectModelGe']/Metaclasses/IRPYRawContainer/IPropertyMetaclass/_Name/text()")
+                cgiclass["stereotype"] = ""
                 if len(stereotype_node) > 0:
                     cgiclass["stereotype"] = stereotype_node[0]
+                else:
+                    cgiclass["stereotype"] = participants[id].type_to_string()
 
                 # Get parent
                 parent_node = cgi.xpath("m_pParent/text()")
                 if len(parent_node) != 1: return None
                 cgiclass["parent"] = parent_node[0]
 
+                logging.debug("Class: %s", cgiclass)
                 classes[id] = cgiclass
                 #print id, "Class:", cgiclass
 
@@ -266,7 +268,9 @@ def parse_classdiagram(xml_node, global_participants, find_name):
             logging.debug("Got source=%s target=%s", source, target)
 
             inherit = {}
+            inherit["source_id"] = source
             inherit["source"] = get_name_for_object(source, classes, components, packages, actors, types, modules)
+            inherit["target_id"] = target
             inherit["target"] = get_name_for_object(target, classes, components, packages, actors, types, modules)
             inheritance.append(inherit)
             logging.debug("Adding inheritance: %s - %s", inherit["source"], inherit["target"])

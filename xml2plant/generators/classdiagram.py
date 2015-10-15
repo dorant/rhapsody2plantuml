@@ -57,33 +57,40 @@ def generate_plantuml_classdiagram(diagram):
     if add_newline:
         result.append("")
 
-    # Add classes
-    '''
-    TEMPORARY REMOVED
+    # Add classes with stereotypes or that is not referenced in other way
     for id in diagram["classes"]:
+        name = diagram["classes"][id]["name"]
 
-        # Check if included in a package
-        add_pkg_end = None
-        for pkgid in diagram["packages"]:
-            for class_id in diagram["packages"][pkgid]["includes"]:
-                if class_id == id:
-                    result.append("package %s {" % diagram["packages"][pkgid]["name"])
-                    add_pkg_end = 1
-
-        if "stereotype" in diagram["classes"][id]:
-            type = "class"
-            if diagram["classes"][id]["stereotype"] == "Interface":
-                type = "interface"
+        # Add interface tags
+        if diagram["classes"][id]["stereotype"] == "Interface":
+            type = "interface"
+            add_newline = 1
 
             result.append("%s %s <<%s>>" % (type,
-                                            diagram["classes"][id]["name"],
+                                            get_namespace(diagram, id, name),      
                                             diagram["classes"][id]["stereotype"]))
-        elif add_pkg_end:
-            result.append("  class %s" % diagram["classes"][id]["name"])
+        else:
+            # Check if not added in other way
+            class_found = None
 
-        if add_pkg_end:
-            result.append("}")
-    '''
+            # Check in inheritance
+            for data in diagram["inheritance"]:
+                if data["target_id"] == id or data["source_id"] == id:
+                    class_found = 1
+
+            # Check in associations
+            if not class_found:
+                for data in diagram["associations"]:
+                    if data["target_id"] == id or data["source_id"] == id:
+                        class_found = 1
+
+            if not class_found:
+                result.append("%s %s" % ("class",
+                                         get_namespace(diagram, id, name)))
+
+
+    if add_newline:
+        result.append("")
 
     # Add types
     add_newline = None
@@ -95,7 +102,10 @@ def generate_plantuml_classdiagram(diagram):
         result.append("")
 
     for data in diagram["inheritance"]:
-        result.append("%s %s %s" % (data["target"], "<|--", data["source"]))
+        target_name = get_namespace(diagram, data["target_id"], data["target"])
+        source_name = get_namespace(diagram, data["source_id"], data["source"])
+
+        result.append("%s %s %s" % (target_name, "<|--", source_name))
 
     for data in diagram["associations"]:
         targetrole = ""

@@ -16,6 +16,7 @@ to [PlantUML](http://plantuml.sourceforge.net) syntax
 ##### Setup
 First build the needed tools (sbs2xml) and install it:
 ```
+cd <repo>
 mkdir build
 cd build
 cmake -DCMAKE_INSTALL_PREFIX=<path to install to> ../
