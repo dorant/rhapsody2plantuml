@@ -15,6 +15,12 @@ to [PlantUML](http://plantuml.sourceforge.net) syntax
 
 ##### Setup
 First build the needed tools (sbs2xml) and install it:
+
+Make sure you have needed dependencies:
+* bison (sudo apt install bison)
+* flex (sudo apt install flex)
+
+Then:
 ```
 cd <repo>
 mkdir build
@@ -22,6 +28,8 @@ cd build
 cmake -DCMAKE_INSTALL_PREFIX=<path to install to> ../
 make install
 ```
+
+
 
 ##### Usage
 Convert all existing diagrams in a project.
